@@ -12,7 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:sqlite": "node scripts/use-db.mjs sqlite && prisma generate",
     "db:postgres": "node scripts/use-db.mjs postgres && prisma generate",
-    "vercel-build": "node scripts/use-db.mjs postgres && prisma generate && prisma db push && next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "postinstall": "prisma generate"
   },
   "prisma": {
