@@ -1,0 +1,128 @@
+// Turfie — data model.
+// Dev uses SQLite for zero-setup runnability; switch `provider` to
+// "postgresql" and point DATABASE_URL at Postgres for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  phone        String?
+  name         String
+  fullName     String
+  passwordHash String?
+  initials     String   @default("TU")
+  city         String   @default("Mumbai")
+  level        String   @default("Intermediate")
+  role         String   @default("player") // player | operator
+  joinedAt     DateTime @default(now())
+  bookings     Booking[]
+}
+
+model Turf {
+  id         String   @id
+  name       String
+  kind       String
+  sports     String   // comma-separated sport ids
+  primary    String
+  area       String
+  pin        String
+  distLabel  String
+  lat        Float
+  lng        Float
+  rating     Float
+  reviews    Int
+  price      Int
+  surface    String
+  formats    String   // comma-separated
+  open24     Boolean  @default(false)
+  openLabel  String
+  openH      Int
+  closeH     Int
+  fieldCount Int      @default(1)
+  unit       String   @default("Pitch")
+  blurb      String
+  amenities  String   // comma-separated
+  spotsLeft  Int
+  popular    Boolean  @default(false)
+  reviewsList Review[]
+  bookings   Booking[]
+}
+
+model Review {
+  id       String @id @default(cuid())
+  turf     Turf   @relation(fields: [turfId], references: [id])
+  turfId   String
+  who      String
+  initials String
+  rating   Int
+  whenLbl  String
+  text     String
+}
+
+model Booking {
+  id           String    @id
+  user         User?     @relation(fields: [userId], references: [id])
+  userId       String?
+  turf         Turf      @relation(fields: [turfId], references: [id])
+  turfId       String
+  field        String    @default("A")
+  unit         String    @default("Pitch")
+  dateKey      String?   // ISO yyyy-mm-dd
+  dateLabel    String
+  time         String
+  startHour    Int?
+  duration     String    @default("1 hr")
+  durationHrs  Int       @default(1)
+  players      String    @default("1/10")
+  status       String    @default("upcoming") // upcoming | completed | cancelled
+  price        Int
+  sport        String
+  split        Boolean   @default(false)
+  kickoffAt    DateTime?
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+  refundMethod String?
+  refundPct    Int?
+  refundAmount Int?
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([turfId, field, dateKey])
+}
+
+// 10-minute slot holds. In production this is a Redis key
+// `lock:{turfId}:{field}:{date}:{hour}` with PX 600000; here it is a
+// DB row with expiresAt and a uniqueness constraint per slot.
+model SlotLock {
+  id        String   @id @default(cuid())
+  turfId    String
+  field     String
+  dateKey   String
+  hour      Int
+  owner     String   // session id or user id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([turfId, field, dateKey, hour])
+  @@index([expiresAt])
+}
+
+// Per-owner monthly reschedule allowance (5 free, then a fee).
+model RescheduleUsage {
+  id    String @id @default(cuid())
+  owner String
+  month String // yyyy-mm
+  count Int    @default(0)
+
+  @@unique([owner, month])
+}

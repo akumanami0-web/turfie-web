@@ -1,0 +1,35 @@
+# Local Postgres + Redis for production-parity development.
+#   docker compose up -d
+# Then point .env at them:
+#   DATABASE_URL="postgresql://turfie:turfie@localhost:5432/turfie?schema=public"
+#   REDIS_URL="redis://localhost:6379"
+# and switch Prisma to Postgres:  npm run db:postgres && npx prisma migrate dev
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: turfie
+      POSTGRES_PASSWORD: turfie
+      POSTGRES_DB: turfie
+    ports:
+      - "5432:5432"
+    volumes:
+      - turfie_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turfie"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - turfie_redis:/data
+
+volumes:
+  turfie_pg:
+  turfie_redis:
