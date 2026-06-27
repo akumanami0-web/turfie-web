@@ -1,26 +1,198 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   Turfie Design System tokens — ported verbatim from the design
+   export (_ds/turfie-design-system/tokens/*.css).
+   ───────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand & accent */
+  --color-primary: #9fe870;
+  --color-on-primary: #0e0f0c;
+  --color-primary-active: #cdffad;
+  --color-primary-neutral: #c5edab;
+  --color-primary-pale: #e2f6d5;
+
+  /* Text / ink */
+  --color-ink: #0e0f0c;
+  --color-ink-deep: #163300;
+  --color-body: #454745;
+  --color-mute: #868685;
+
+  /* Surface */
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #e8ebe6;
+
+  /* Semantic — positive */
+  --color-positive: #2ead4b;
+  --color-positive-deep: #054d28;
+  /* Semantic — warning */
+  --color-warning: #ffd11a;
+  --color-warning-deep: #b86700;
+  --color-warning-content: #4a3b1c;
+  /* Semantic — negative */
+  --color-negative: #d03238;
+  --color-negative-deep: #a72027;
+  --color-negative-darkest: #a7000d;
+  --color-negative-bg: #320707;
+
+  /* Aliases referenced by the app but not in the base set */
+  --color-warning-pale: #fff3c4;
+  --color-negative-pale: #f7e0e1;
+
+  /* Tertiary illustration accents */
+  --color-accent-orange: #ffc091;
+  --color-accent-cyan: #38c8ff;
+
+  /* Semantic aliases */
+  --text-default: var(--color-ink);
+  --text-secondary: var(--color-body);
+  --text-muted: var(--color-mute);
+  --text-on-dark: var(--color-canvas-soft);
+  --text-on-primary: var(--color-on-primary);
+
+  --surface-page: var(--color-canvas-soft);
+  --surface-card: var(--color-canvas);
+  --surface-card-sage: var(--color-canvas-soft);
+  --surface-card-green: var(--color-primary-pale);
+  --surface-card-dark: var(--color-ink);
+
+  --border-strong: var(--color-ink);
+  --border-subtle: #d4d8d1;
+
+  --action-primary: var(--color-primary);
+  --action-primary-hover: var(--color-primary-active);
+
+  /* Typography — faces wired through next/font (see layout.tsx) */
+  --font-display: var(--font-manrope), "Manrope", "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  /* Spacing — 4px base */
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --space-4xl: 64px;
+  --container-max: 1200px;
+
+  /* Radius */
+  --radius-none: 0px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* Elevation */
+  --shadow-none: none;
+  --shadow-card: 0 1px 2px rgba(14, 15, 12, 0.04), 0 8px 24px rgba(14, 15, 12, 0.06);
+  --shadow-pop: 0 8px 32px rgba(14, 15, 12, 0.12);
+  --border-hairline: 1px solid var(--color-ink);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Keep Tailwind/Lightning CSS from ever tree-shaking the tokens by
+   referencing the brand vars in a real (no-op) rule. */
+.t-token-anchor {
+  color: var(--color-primary);
+  background: var(--color-canvas-soft);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ── Base resets / brand defaults ── */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-canvas-soft);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "calt" 1;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 800; color: var(--color-ink); margin: 0; }
+a { color: inherit; }
+button { font-family: var(--font-body); }
+img, iframe, svg, video, canvas { max-width: 100%; }
+::selection { background: var(--color-primary); color: var(--color-on-primary); }
+input::placeholder, textarea::placeholder { color: var(--color-mute); }
+
+.t-scroll-x { scrollbar-width: thin; }
+.t-scroll-x::-webkit-scrollbar { height: 6px; }
+.t-scroll-x::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 99px; }
+
+.t-pulse { animation: tpulse 1.4s infinite ease-in-out; }
+@keyframes tpulse { 0%,100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1); } }
+
+/* responsive form grid */
+.t-form-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; }
+.t-display { overflow-wrap: break-word; }
+.t-hero-grid > *, .t-court-grid > *, .t-browse-grid > *, .t-list-grid > *,
+.t-auth-grid > *, .t-cta-grid > *, .t-steps-grid > *, .t-feat-grid > * { min-width: 0; }
+
+/* ── responsive ── */
+.t-nav-mobile { display: none !important; }
+@media (max-width: 900px) {
+  .t-nav-desktop { display: none !important; }
+  .t-nav-mobile { display: grid !important; }
+  .t-hero-grid { grid-template-columns: 1fr !important; }
+  .t-feat-grid { grid-template-columns: 1fr 1fr !important; }
+  .t-card-grid-4 { grid-template-columns: 1fr 1fr !important; }
+  .t-steps-grid { grid-template-columns: 1fr !important; }
+  .t-browse-grid { grid-template-columns: 1fr !important; }
+  .t-court-grid { grid-template-columns: 1fr !important; }
+  .t-cta-grid { grid-template-columns: 1fr !important; }
+  .t-list-grid { grid-template-columns: 1fr !important; }
+  .t-auth-grid { grid-template-columns: 1fr !important; }
+  .t-auth-panel { display: none !important; }
+  .t-bookings-grid { grid-template-columns: 1fr !important; }
+  .t-acct-menu { grid-template-columns: 1fr !important; }
+  .t-foot-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; }
+  .t-map-toggle { display: inline-flex !important; }
+  .t-hide-mobile { display: none !important; }
+  .t-browse-map { position: static !important; }
+  .t-admin-grid { grid-template-columns: 1fr !important; }
+  .t-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  .t-refund-summary { grid-template-columns: 1fr !important; }
+  .t-how-row { grid-template-columns: 64px 1fr !important; }
+}
+@media (max-width: 560px) {
+  .t-feat-grid { grid-template-columns: 1fr !important; }
+  .t-card-grid-4 { grid-template-columns: 1fr !important; }
+  .t-stat-row { grid-template-columns: 1fr !important; }
+  .t-turf-list { grid-template-columns: 1fr !important; }
+  .t-foot-grid { grid-template-columns: 1fr !important; }
+  .t-form-2 { grid-template-columns: 1fr !important; }
+  .t-2btn { flex-direction: column !important; }
+  .t-sechead { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
+}
+
+@media (max-width: 640px) {
+  .t-display { font-size: min(var(--disp), 10.5vw) !important; }
+  .t-slot-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)) !important; }
+  .t-container { padding-left: 16px !important; padding-right: 16px !important; }
+  .t-card-pad { padding: 18px !important; }
+  .t-sechead-meta { width: 100%; }
+}
+
+@media (min-width: 640px) {
+  .t-share-overlay { align-items: center !important; padding: 24px !important; }
+  .t-share-card { border-radius: 24px !important; }
 }
