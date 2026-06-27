@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createOrder } from "@/lib/payments";
-import { myExpiry } from "@/lib/locks";
+import { ensureHold, SlotConflictError } from "@/lib/locks";
 import { getLockOwner } from "@/lib/owner";
 
 export async function POST(req: Request) {
@@ -14,11 +14,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid checkout request" }, { status: 400 });
   }
 
-  // the hold must still belong to this owner
+  // ensure this owner holds the slot (re-claim if the hold lapsed but the slot
+  // is still free, so a lost hold never blocks a legitimate checkout)
   const owner = await getLockOwner();
-  const until = await myExpiry(turfId, field, dateKey, hours, owner);
-  if (!until || until <= Date.now()) {
-    return NextResponse.json({ error: "Your slot hold has expired." }, { status: 410 });
+  try {
+    await ensureHold(turfId, field, dateKey, hours, owner);
+  } catch (e) {
+    if (e instanceof SlotConflictError) {
+      return NextResponse.json({ error: "That slot was just taken by another player." }, { status: 409 });
+    }
+    throw e;
   }
 
   const order = await createOrder(total, `rcpt_${turfId}_${dateKey}_${hours[0]}`);

@@ -69,12 +69,6 @@ export function AuthScreen({ mode = "login", providers = { google: false, apple:
             <Button type="submit" fullWidth size="lg" disabled={busy} iconRight={<Icon name="arrowRight" size={18} />}>{busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}</Button>
           </form>
 
-          {isLogin && (
-            <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--color-primary-pale)", borderRadius: "var(--radius-md)", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-ink-deep)" }}>
-              Demo account — <strong>aarav@turfie.in</strong> / <strong>turfie123</strong>
-            </div>
-          )}
-
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "22px 0" }}>
             <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
             <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>or</span>

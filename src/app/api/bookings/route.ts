@@ -5,7 +5,7 @@ import { getLockOwner } from "@/lib/owner";
 import { getTurf } from "@/lib/turfs";
 import { rowToBooking, getUserBookings } from "@/lib/bookings";
 import { verifyPayment } from "@/lib/payments";
-import { confirm, myExpiry } from "@/lib/locks";
+import { confirm, ensureHold, SlotConflictError } from "@/lib/locks";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -38,11 +38,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payment verification failed." }, { status: 402 });
   }
 
-  // the hold must still be ours
+  // ensure the slot is ours (re-claim a lapsed-but-free hold rather than failing)
   const owner = await getLockOwner();
-  const until = await myExpiry(turfId, field, dateKey, hours, owner);
-  if (!until || until <= Date.now()) {
-    return NextResponse.json({ error: "Your slot hold has expired." }, { status: 410 });
+  try {
+    await ensureHold(turfId, field, dateKey, hours, owner);
+  } catch (e) {
+    if (e instanceof SlotConflictError) {
+      return NextResponse.json({ error: "That slot was just taken by another player." }, { status: 409 });
+    }
+    throw e;
   }
 
   const user = await getSessionUser();

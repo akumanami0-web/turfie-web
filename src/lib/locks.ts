@@ -169,3 +169,29 @@ export const claim = (turfId: string, field: string, dateKey: string, hours: num
 export const release = (turfId: string, field: string, dateKey: string, hours: number[], owner: string) => store().release(turfId, field, dateKey, hours, owner);
 /** Payment success → the hold is consumed (booking row is the source of truth). */
 export const confirm = (turfId: string, field: string, dateKey: string, hours: number[], owner: string) => store().release(turfId, field, dateKey, hours, owner);
+
+/** Do any of these hours collide with a confirmed booking? */
+async function bookedConflict(turfId: string, field: string, dateKey: string, hours: number[]): Promise<boolean> {
+  const bks = await prisma.booking.findMany({
+    where: { turfId, field, dateKey, status: { in: ["upcoming", "completed"] } },
+  });
+  const taken = new Set<number>();
+  for (const b of bks) {
+    if (b.startHour == null) continue;
+    for (let i = 0; i < (b.durationHrs || 1); i++) taken.add(b.startHour + i);
+  }
+  return hours.some((h) => taken.has(h));
+}
+
+/** Guarantee the owner holds these hours at checkout/booking time.
+    Returns the hold expiry. If the owner's hold is still live → return it.
+    If it lapsed (e.g. the in-memory/ephemeral store lost it, or 10 min passed)
+    but the slot is still free → re-claim it so the user isn't falsely told
+    their hold "expired". Throws SlotConflictError only if the slot is genuinely
+    taken by a confirmed booking or held by another player. */
+export async function ensureHold(turfId: string, field: string, dateKey: string, hours: number[], owner: string, minutes = LOCK_MINUTES): Promise<number> {
+  const until = await myExpiry(turfId, field, dateKey, hours, owner);
+  if (until > Date.now()) return until;
+  if (await bookedConflict(turfId, field, dateKey, hours)) throw new SlotConflictError();
+  return claim(turfId, field, dateKey, hours, owner, minutes); // throws if held by another
+}

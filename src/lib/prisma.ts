@@ -9,10 +9,22 @@ import path from "node:path";
      seeded prisma/build.db to a writable /tmp path and use that (absolute, so
      it resolves the same regardless of cwd). Add a Vercel Postgres + redeploy
      to switch to durable storage automatically. */
+/** First postgres:// URL among the env vars Vercel/Neon/Supabase integrations set. */
+export function resolvePostgresUrl(): string | undefined {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.POSTGRES_PRISMA_URL,
+    process.env.POSTGRES_URL,
+    process.env.DATABASE_URL_UNPOOLED,
+    process.env.POSTGRES_URL_NON_POOLING,
+  ];
+  return candidates.find((u) => u && /^postgres(ql)?:\/\//.test(u)) || undefined;
+}
+
 function datasourceOverride(): string | undefined {
-  const url = process.env.DATABASE_URL || "";
-  if (/^postgres(ql)?:\/\//.test(url)) return undefined; // Postgres: use env
-  if (!process.env.VERCEL) return undefined; // local dev: use env (schema-relative)
+  const pg = resolvePostgresUrl();
+  if (pg) return pg; // Postgres: use it (whatever it's named)
+  if (!process.env.VERCEL) return undefined; // local dev: use env (schema-relative SQLite)
 
   const target = "/tmp/turfie.db";
   const seed = path.join(process.cwd(), "prisma", "build.db");

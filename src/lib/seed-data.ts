@@ -99,14 +99,3 @@ export const REVIEWS: Review[] = [
   { who: "Aisha K.", initials: "AK", rating: 4, whenLbl: "1 month ago", text: "Great pitch and easy to split the bill with friends. Parking gets tight on weekends — go early." },
   { who: "Manish J.", initials: "MJ", rating: 5, whenLbl: "1 month ago", text: "We run our Sunday league here. Nets are proper and the staff are helpful. Highly recommend." },
 ];
-
-export const DEMO_USER = {
-  name: "Aarav",
-  fullName: "Aarav Sharma",
-  email: "aarav@turfie.in",
-  phone: "+91 98200 12345",
-  initials: "AS",
-  city: "Nalasopara",
-  level: "Intermediate",
-  password: "turfie123",
-};
