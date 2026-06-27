@@ -30,6 +30,13 @@ if (runtimeUrl) {
   run("node scripts/use-db.mjs postgres");
   run("npx prisma generate");
   run("npx prisma db push --skip-generate", { DATABASE_URL: directUrl });
+  // Seed turfs + reviews (idempotent upserts) so the venue catalog is present
+  // on first deploy. Never creates user accounts — sign-up is real.
+  try {
+    run("npx tsx prisma/seed.ts", { DATABASE_URL: directUrl });
+  } catch (e) {
+    console.warn("seed skipped/failed (non-fatal):", e?.message || e);
+  }
   run("next build", { DATABASE_URL: runtimeUrl });
 } else {
   console.log("→ No Postgres: building self-contained SQLite demo (data is ephemeral).");
