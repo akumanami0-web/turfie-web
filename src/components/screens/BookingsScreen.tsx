@@ -97,7 +97,7 @@ function CancelModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Turf; 
   );
 }
 
-function RescheduleModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Turf; onClose: () => void; onConfirm: (patch: { dateLabel: string; dateKey: string; time: string; startHour: number; duration: string; durationHrs: number }) => void }) {
+function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking; turf: Turf; resched: { freeLeft: number; fee: number }; onClose: () => void; onConfirm: (patch: { dateLabel: string; dateKey: string; time: string; startHour: number; duration: string; durationHrs: number }) => void }) {
   const toast = useToast();
   const days = useMemo(() => nextDays(30), []);
   const hours = turfHours(turf);
@@ -107,9 +107,7 @@ function RescheduleModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Tu
   const [start, setStart] = useState<number | null>(null);
   const [taken, setTaken] = useState<number[]>([]);
   const [held, setHeld] = useState<number[]>([]);
-  const [resched, setResched] = useState({ freeLeft: RESCHEDULE_FREE, fee: 0 });
 
-  useEffect(() => { fetch("/api/reschedule-status").then((r) => r.json()).then(setResched).catch(() => {}); }, []);
   const fetchAvail = useCallback(async () => {
     const res = await fetch(`/api/availability?turfId=${turf.id}&field=${field}&date=${date}`, { cache: "no-store" });
     if (res.ok) { const d = await res.json(); setTaken(d.taken || []); setHeld((d.held || []).map((h: { hour: number }) => h.hour)); }
@@ -185,7 +183,7 @@ function RescheduleModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Tu
   );
 }
 
-export function BookingsScreen({ initialBookings, turfs }: { initialBookings: Booking[]; turfs: Turf[] }) {
+export function BookingsScreen({ initialBookings, turfs, reschedule }: { initialBookings: Booking[]; turfs: Turf[]; reschedule: { freeLeft: number; fee: number } }) {
   const router = useRouter();
   const toast = useToast();
   const [bookings, setBookings] = useState(initialBookings);
@@ -245,7 +243,7 @@ export function BookingsScreen({ initialBookings, turfs }: { initialBookings: Bo
           <CancelModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} onClose={() => setModal(null)} onConfirm={() => doCancel(modal.b)} />
         )}
         {modal?.type === "reschedule" && turfMap.get(modal.b.turfId) && (
-          <RescheduleModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} onClose={() => setModal(null)} onConfirm={(p) => doReschedule(modal.b, p)} />
+          <RescheduleModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} resched={reschedule} onClose={() => setModal(null)} onConfirm={(p) => doReschedule(modal.b, p)} />
         )}
       </Container>
     </div>
