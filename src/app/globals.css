@@ -142,6 +142,10 @@ input::placeholder, textarea::placeholder { color: var(--color-mute); }
 .t-pulse { animation: tpulse 1.4s infinite ease-in-out; }
 @keyframes tpulse { 0%,100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1); } }
 
+/* skeleton shimmer for loading states */
+.t-skel { background: linear-gradient(90deg, #e2e6e0 25%, #eef1ec 37%, #e2e6e0 63%); background-size: 400% 100%; animation: tshimmer 1.4s ease infinite; border-radius: 8px; }
+@keyframes tshimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
 /* responsive form grid */
 .t-form-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; }
 .t-display { overflow-wrap: break-word; }

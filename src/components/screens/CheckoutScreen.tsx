@@ -5,6 +5,7 @@ import { Button, Card, Input } from "@/components/ui/primitives";
 import { Container, Display, CourtArt } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
+import { useSession } from "@/components/providers/session";
 import { inr, mmss } from "@/lib/format";
 import type { Turf } from "@/lib/types";
 
@@ -46,14 +47,21 @@ function loadRazorpay(): Promise<boolean> {
 export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useSession();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [method, setMethod] = useState("upi");
   const [split, setSplit] = useState(false);
   const [players, setPlayers] = useState(10);
   const [contact, setContact] = useState({ name: "", phone: "", email: "" });
+  const [editContact, setEditContact] = useState(false);
   const [touched, setTouched] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [, setTick] = useState(0);
+
+  // prefill contact from the signed-in user's profile (guests fill it in)
+  useEffect(() => {
+    if (user) setContact({ name: user.fullName || "", phone: user.phone || "", email: user.email || "" });
+  }, [user]);
 
   useEffect(() => {
     try {
@@ -166,19 +174,44 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
         <div className="t-court-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 0.9fr", gap: 28, alignItems: "start" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <Card tone="white" style={{ padding: 24 }}>
-              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, textTransform: "uppercase", margin: "0 0 14px" }}>Your details</h3>
-              <div className="t-form-2">
-                <Input label="Full name" placeholder="e.g. Aarav Sharma" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} />
-                <Input label="Phone" placeholder="+91 00000 00000" inputMode="tel" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <Input label="Email" placeholder="you@email.com" inputMode="email" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
-                    hint={touched && !contactOk ? undefined : "Your booking confirmation goes here"}
-                    error={touched && !contactOk ? "Enter a phone number or email to receive your booking" : undefined} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12 }}>
+                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, textTransform: "uppercase", margin: 0 }}>Your details</h3>
+                {user && !editContact && (
+                  <button onClick={() => setEditContact(true)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, color: "var(--color-ink)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <Icon name="edit" size={14} /> Use different details
+                  </button>
+                )}
+              </div>
+
+              {user && !editContact ? (
+                /* Signed in → use the profile, don't ask */
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--color-primary-pale)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <Icon name="user" size={22} color="var(--color-ink-deep)" />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{contact.name || user.fullName}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {[contact.email, contact.phone].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)", marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon name="shield" size={14} color="var(--color-mute)" /> Add a phone number or email — at least one is required.
-              </div>
+              ) : (
+                <>
+                  <div className="t-form-2">
+                    <Input label="Full name" placeholder="e.g. Aarav Sharma" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} />
+                    <Input label="Phone" placeholder="+91 00000 00000" inputMode="tel" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <Input label="Email" placeholder="you@email.com" inputMode="email" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
+                        hint={touched && !contactOk ? undefined : "Your booking confirmation goes here"}
+                        error={touched && !contactOk ? "Enter a phone number or email to receive your booking" : undefined} />
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)", marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Icon name="shield" size={14} color="var(--color-mute)" /> Add a phone number or email — at least one is required.
+                  </div>
+                </>
+              )}
             </Card>
 
             <Card tone="white" style={{ padding: 24 }}>

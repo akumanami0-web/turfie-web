@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
@@ -43,8 +44,9 @@ export async function clearSession() {
   jar.delete(COOKIE);
 }
 
-/** Read + verify the current session, returning a serializable user (or null). */
-export async function getSessionUser(): Promise<SessionUser | null> {
+/** Read + verify the current session, returning a serializable user (or null).
+    Wrapped in React cache() so the layout + page share one lookup per request. */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
@@ -67,7 +69,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
-}
+});
 
 export function initialsFrom(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
