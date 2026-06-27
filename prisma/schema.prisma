@@ -24,6 +24,18 @@ model User {
   role         String   @default("player") // player | operator
   joinedAt     DateTime @default(now())
   bookings     Booking[]
+  favourites   Favourite[]
+}
+
+model Favourite {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  turfId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, turfId])
+  @@index([userId])
 }
 
 model Turf {
