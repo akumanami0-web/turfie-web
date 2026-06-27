@@ -186,7 +186,7 @@ input::placeholder, textarea::placeholder { color: var(--color-mute); }
 
 @media (max-width: 640px) {
   .t-display { font-size: min(var(--disp), 10.5vw) !important; }
-  .t-slot-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)) !important; }
+  .t-slot-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important; }
   .t-container { padding-left: 16px !important; padding-right: 16px !important; }
   .t-card-pad { padding: 18px !important; }
   .t-sechead-meta { width: 100%; }

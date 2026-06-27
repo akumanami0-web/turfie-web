@@ -6,7 +6,7 @@ import { Container, Display, Eyebrow } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
 import { turfHours, turfFields } from "@/lib/turf-utils";
-import { nextDays, fmtHour, inr, mmss } from "@/lib/format";
+import { nextDays, fmtHour, hourRange, inr, mmss } from "@/lib/format";
 import type { Turf } from "@/lib/types";
 
 const secHd: React.CSSProperties = { fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, textTransform: "uppercase", margin: "0 0 14px", whiteSpace: "nowrap" };
@@ -200,7 +200,7 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
                   <Lgnd c="var(--color-canvas-soft)" label="Booked" />
                 </div>
               </div>
-              <div className="t-slot-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(98px, 1fr))", gap: 10 }}>
+              <div className="t-slot-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 10 }}>
                 {hours.map((h) => {
                   const isTaken = takenSet.has(h);
                   const other = heldByOther(h);
@@ -215,8 +215,8 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
                   return (
                     <button key={h} disabled={disabled} onClick={() => pick(h)}
                       title={other ? "Being booked by another player" : isTaken ? "Already booked" : blocked ? "Not enough consecutive time" : ""}
-                      style={{ padding: "12px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, textDecoration: dec, opacity: op, position: "relative" }}>
-                      {fmtHour(h)}
+                      style={{ padding: "11px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, textDecoration: dec, opacity: op, position: "relative", whiteSpace: "nowrap" }}>
+                      {hourRange(h, duration)}
                       {other && <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2 }}>{mmss(other.until - Date.now())} held</div>}
                     </button>
                   );

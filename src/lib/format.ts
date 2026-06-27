@@ -18,6 +18,19 @@ export function fmtHour(h: number) {
   return `${hr}:00 ${ap}`;
 }
 
+/** Compact hour label, e.g. "6 PM", "12 AM", "1 AM". */
+export function hourShort(h: number) {
+  h = ((h % 24) + 24) % 24;
+  const ap = h < 12 ? "AM" : "PM";
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr} ${ap}`;
+}
+
+/** Start–end range for a booking of `dur` hours, e.g. "6 PM – 8 PM". */
+export function hourRange(start: number, dur: number) {
+  return `${hourShort(start)} – ${hourShort(start + dur)}`;
+}
+
 export const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
