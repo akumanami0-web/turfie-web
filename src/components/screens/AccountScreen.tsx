@@ -18,7 +18,10 @@ export function AccountScreen({ bookings }: { bookings: Booking[] }) {
 
   const upcoming = bookings.filter((b) => b.status === "upcoming").length;
   const refundCount = bookings.filter((b) => b.status === "cancelled").length;
-  const played = bookings.filter((b) => b.status === "completed").length || 32;
+  // Real stats from the user's own bookings (no placeholder fallbacks).
+  const completed = bookings.filter((b) => b.status === "completed");
+  const played = completed.length;
+  const hoursPlayed = completed.reduce((s, b) => s + (b.durationHrs || 1), 0);
 
   const menu: [string, string, string, () => void][] = [
     ["calendar", "My bookings", `${upcoming} upcoming`, () => router.push("/account/bookings")],
@@ -40,7 +43,7 @@ export function AccountScreen({ bookings }: { bookings: Booking[] }) {
               <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-mute)", marginTop: 4 }}>{user.email}</div>
               <Badge variant="positive" style={{ marginTop: 12 }}>{user.level} player</Badge>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--border-subtle)" }}>
-                {[[played, "Games"], [played * 2, "Hours"], [fav.length, "Saved"]].map(([n, l]) => (
+                {[[played, "Games"], [hoursPlayed, "Hours"], [fav.length, "Saved"]].map(([n, l]) => (
                   <div key={l}><div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24 }}>{n}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-mute)" }}>{l}</div></div>
                 ))}
               </div>

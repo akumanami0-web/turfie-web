@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const KEY = "turfie.fav";
-const DEFAULT = ["box-park", "smash-pickle"];
+const DEFAULT: string[] = []; // new users start with nothing saved
 
 function read(): string[] {
   try {
