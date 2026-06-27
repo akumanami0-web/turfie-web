@@ -1,2 +1,2 @@
-import { ListPageSkeleton } from "@/components/ui/Skeletons";
-export default function Loading() { return <ListPageSkeleton rows={3} summary />; }
+import { RefundsSkeleton } from "@/components/ui/Skeletons";
+export default function Loading() { return <RefundsSkeleton />; }

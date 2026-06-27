@@ -9,11 +9,11 @@ import { useToast } from "@/components/providers/toast";
 import { useFavourites } from "@/lib/useFavourites";
 import type { Booking } from "@/lib/types";
 
-export function AccountScreen({ bookings }: { bookings: Booking[] }) {
+export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; initialFav: string[] }) {
   const router = useRouter();
   const { user, logout } = useSession();
   const toast = useToast();
-  const { fav } = useFavourites();
+  const { fav } = useFavourites(initialFav);
   if (!user) return null;
 
   const upcoming = bookings.filter((b) => b.status === "upcoming").length;

@@ -8,9 +8,9 @@ import { TurfCard } from "@/components/ui/TurfCard";
 import { useFavourites } from "@/lib/useFavourites";
 import type { Turf } from "@/lib/types";
 
-export function SavedScreen({ turfs }: { turfs: Turf[] }) {
+export function SavedScreen({ turfs, initialFav }: { turfs: Turf[]; initialFav: string[] }) {
   const router = useRouter();
-  const { fav } = useFavourites();
+  const { fav } = useFavourites(initialFav);
   const favs = fav.map((id) => turfs.find((t) => t.id === id)).filter(Boolean) as Turf[];
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 32, paddingBottom: 64 }}>

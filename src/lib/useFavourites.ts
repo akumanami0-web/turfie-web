@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "@/components/providers/session";
 
 const KEY = "turfie.fav";
@@ -16,11 +16,15 @@ function readLS(): string[] {
 /** Favourited turf ids.
     • Logged in → stored per-account in the database (synced across devices).
     • Guest → stored per-browser in localStorage so the heart still works. */
-export function useFavourites() {
+export function useFavourites(initial?: string[]) {
   const { user } = useSession();
-  const [fav, setFav] = useState<string[]>([]);
+  const [fav, setFav] = useState<string[]>(initial ?? []);
+  // When the server already handed us the list, skip the first fetch so the
+  // correct content paints immediately (no empty -> loaded blink).
+  const skip = useRef(initial != null);
 
   useEffect(() => {
+    if (skip.current) { skip.current = false; return; }
     let cancelled = false;
     if (user) {
       fetch("/api/favourites", { cache: "no-store" })
