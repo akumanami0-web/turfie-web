@@ -204,7 +204,9 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
                 {hours.map((h) => {
                   const isTaken = takenSet.has(h);
                   const other = heldByOther(h);
-                  const on = selected.includes(h);
+                  // Each tile is a *start* option labelled with its full range
+                  // (e.g. "2 PM – 4 PM"); only the chosen start lights up.
+                  const on = start === h;
                   const blocked = !isTaken && !other && !on && !canStart(h, duration);
                   const disabled = (isTaken || !!other || blocked) && !on;
                   let bg = "var(--color-canvas)", col = "var(--color-ink)", bd = "var(--border-subtle)", dec = "none", op = 1;

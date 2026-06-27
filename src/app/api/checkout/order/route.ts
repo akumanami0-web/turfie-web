@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createOrder } from "@/lib/payments";
 import { ensureHold, SlotConflictError } from "@/lib/locks";
 import { getLockOwner } from "@/lib/owner";
+import { getTurf } from "@/lib/turfs";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
@@ -9,10 +10,15 @@ export async function POST(req: Request) {
   const field = String(body.field || "A");
   const dateKey = String(body.dateKey || "");
   const hours = Array.isArray(body.hours) ? (body.hours as number[]).map(Number) : [];
-  const total = Number(body.total || 0);
-  if (!turfId || !dateKey || !hours.length || total <= 0) {
+  if (!turfId || !dateKey || !hours.length) {
     return NextResponse.json({ error: "Invalid checkout request" }, { status: 400 });
   }
+
+  // Never trust a client-supplied amount — compute the charge from the turf's
+  // real rate and the number of hours requested.
+  const turf = await getTurf(turfId);
+  if (!turf) return NextResponse.json({ error: "Turf not found" }, { status: 404 });
+  const total = turf.price * hours.length;
 
   // ensure this owner holds the slot (re-claim if the hold lapsed but the slot
   // is still free, so a lost hold never blocks a legitimate checkout)

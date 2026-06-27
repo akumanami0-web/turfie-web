@@ -8,7 +8,7 @@ import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
 import { refundQuote, RESCHEDULE_FREE, RESCHEDULE_FEE } from "@/lib/content";
 import { turfHours } from "@/lib/turf-utils";
-import { nextDays, fmtHour, inr } from "@/lib/format";
+import { nextDays, fmtHour, hourRange, inr } from "@/lib/format";
 import type { Booking, Turf } from "@/lib/types";
 
 function statusBadge(s: string) {
@@ -118,9 +118,9 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
   const heldSet = useMemo(() => new Set(held), [held]);
   const free = (h: number) => hours.includes(h) && !takenSet.has(h) && !heldSet.has(h);
   const canStart = (h: number) => { for (let i = 0; i < durHrs; i++) if (!free(h + i)) return false; return true; };
-  const sel = start != null ? Array.from({ length: durHrs }, (_, i) => start + i) : [];
   const newLabel = days.find((d) => d.key === date)?.label || "";
   const newTime = start != null ? fmtHour(start) : null;
+  const newRange = start != null ? hourRange(start, durHrs) : null;
 
   function confirm() {
     if (start == null) return;
@@ -155,10 +155,12 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
       </div>
 
       <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "var(--color-ink)", marginBottom: 8 }}>New time {durHrs === 2 ? "(2 hrs)" : ""}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 8, maxHeight: 168, overflowY: "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, maxHeight: 220, overflowY: "auto" }}>
         {hours.map((h) => {
           const isTaken = takenSet.has(h) || heldSet.has(h);
-          const on = sel.includes(h);
+          // One tile per start option, labelled with the full range; only the
+          // chosen start lights up (matches the booking page).
+          const on = start === h;
           const blocked = !on && !canStart(h);
           const disabled = (isTaken || blocked) && !on;
           let bg = "var(--color-canvas)", col = "var(--color-ink)", bd = "var(--border-subtle)", op = 1, dec = "none";
@@ -166,8 +168,8 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
           else if (isTaken) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; }
           else if (blocked) { op = 0.45; }
           return (
-            <button key={h} disabled={disabled} onClick={() => { if (!canStart(h)) { toast("Pick a free slot", "warning"); return; } setStart(h); }} style={{ padding: "10px 4px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, opacity: op, textDecoration: dec }}>
-              {fmtHour(h)}
+            <button key={h} disabled={disabled} onClick={() => { if (!canStart(h)) { toast("Pick a free slot", "warning"); return; } setStart(h); }} style={{ padding: "10px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, opacity: op, textDecoration: dec, whiteSpace: "nowrap" }}>
+              {hourRange(h, durHrs)}
             </button>
           );
         })}
@@ -176,7 +178,7 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
       <div style={{ display: "flex", gap: 10, marginTop: 22 }} className="t-2btn">
         <Button variant="tertiary" fullWidth onClick={onClose}>Keep current</Button>
         <Button fullWidth disabled={start == null} onClick={confirm} iconRight={<Icon name="check" size={17} />}>
-          {start == null ? "Pick a time" : resched.fee === 0 ? `Move to ${newTime}` : `Move to ${newTime} · ${inr(RESCHEDULE_FEE)}`}
+          {start == null ? "Pick a time" : resched.fee === 0 ? `Move to ${newRange}` : `Move to ${newRange} · ${inr(RESCHEDULE_FEE)}`}
         </Button>
       </div>
     </ModalShell>

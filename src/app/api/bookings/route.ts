@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const {
     turfId, field = "A", dateKey, dateLabel, startHour, hours = [], duration, durationHrs = 1,
-    slotLabel, total, players, split = false, contact = {},
+    slotLabel, players, split = false, contact = {},
     payment = {},
   } = body;
 
@@ -26,6 +26,10 @@ export async function POST(req: Request) {
   }
   const turf = await getTurf(turfId);
   if (!turf) return NextResponse.json({ error: "Turf not found" }, { status: 404 });
+
+  // Price is computed server-side from the real rate × hours — never trusted
+  // from the client, so a tampered request can't underpay.
+  const total = turf.price * hours.length;
 
   const emailOk = /\S+@\S+\.\S+/.test(String(contact.email || "").trim());
   const phoneOk = String(contact.phone || "").replace(/\D/g, "").length >= 10;
@@ -69,7 +73,7 @@ export async function POST(req: Request) {
       durationHrs: Number(durationHrs) || 1,
       players: `1/${Number(players) || 10}`,
       status: "upcoming",
-      price: Number(total) || turf.price,
+      price: total,
       sport: turf.primary,
       split: !!split,
       kickoffAt,

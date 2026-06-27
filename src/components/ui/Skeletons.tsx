@@ -20,10 +20,16 @@ function Card({ children, pad = 22, style = {} }: { children?: React.ReactNode; 
 /** Page shell — soft canvas, same paddings as the real screens. */
 function Page({ children, wide = false, pad = 32 }: { children: React.ReactNode; wide?: boolean; pad?: number }) {
   return (
-    <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: pad, paddingBottom: 64 }}>
+    <div className="t-skel-page" style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: pad, paddingBottom: 64 }}>
       <Container wide={wide}>{children}</Container>
     </div>
   );
+}
+
+/** Stretching art block for split cards — fills the grid row height via
+    align stretch (no percentage height, which renders unreliably in a grid). */
+function Art({ minHeight }: { minHeight: number }) {
+  return <div className="t-skel" style={{ minHeight, borderRadius: 0, alignSelf: "stretch" }} />;
 }
 
 /** Eyebrow + Display heading placeholder. */
@@ -70,8 +76,8 @@ function TurfCardGrid() {
 /** One turf card — matches <TurfCard variant="list">. */
 function TurfCardList() {
   return (
-    <div className="t-turf-list" style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "grid", gridTemplateColumns: "210px 1fr" }}>
-      <Skel w="100%" h="100%" r={0} style={{ minHeight: 168 }} />
+    <div className="t-turf-list" style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "grid", gridTemplateColumns: "210px 1fr", alignItems: "stretch" }}>
+      <Art minHeight={168} />
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 11 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1 }}><Skel w="60%" h={22} style={{ marginBottom: 8 }} /><Skel w="32%" h={13} /></div>
@@ -104,7 +110,7 @@ export function SavedSkeleton() {
 /* ─────────────────────────── Browse ─────────────────────────── */
 export function BrowseSkeleton() {
   return (
-    <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh" }}>
+    <div className="t-skel-page" style={{ background: "var(--color-canvas-soft)", minHeight: "100vh" }}>
       <div style={{ background: "var(--color-canvas)", borderBottom: "1px solid var(--border-subtle)", paddingTop: 28, paddingBottom: 20 }}>
         <Container wide>
           <Skel w={150} h={12} style={{ marginBottom: 12 }} />
@@ -133,8 +139,8 @@ export function BrowseSkeleton() {
 /* ─────────────────────────── My bookings ─────────────────────────── */
 function BookingRowSkel() {
   return (
-    <div style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "grid", gridTemplateColumns: "120px 1fr" }}>
-      <Skel w="100%" h="100%" r={0} style={{ minHeight: 120 }} />
+    <div style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "stretch" }}>
+      <Art minHeight={150} />
       <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1 }}><Skel w="70%" h={19} style={{ marginBottom: 7 }} /><Skel w="45%" h={13} /></div>
@@ -254,7 +260,7 @@ export function AccountSkeleton() {
 /* ─────────────────────────── Court detail ─────────────────────────── */
 export function CourtSkeleton() {
   return (
-    <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingBottom: 64 }}>
+    <div className="t-skel-page" style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingBottom: 64 }}>
       <Skel w="100%" h={340} r={0} />
       <Container style={{ marginTop: -40, position: "relative" }}>
         <div className="t-court-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 0.9fr", gap: 28, alignItems: "start" }}>
