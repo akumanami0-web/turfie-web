@@ -5,6 +5,7 @@ import { Button, Card, Input } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow, Avatar } from "@/components/ui/layout-bits";
 import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
 import { profileSteps, PROFILE_TOTAL, GENDER_OPTIONS } from "@/lib/profile";
@@ -50,18 +51,40 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast("Use a JPG, PNG or WebP image", "warning"); return; }
-    if (file.size > 5 * 1024 * 1024) { toast("Image must be under 5 MB", "warning"); return; }
+    const extByType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+    const ext = extByType[file.type];
+    if (!ext) { toast("Use a JPG, PNG or WebP image", "warning"); return; }
+    if (file.size > 50 * 1024 * 1024) { toast("Image must be under 50 MB", "warning"); return; }
+
     setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/profile/photo", { method: "POST", body: fd });
-    const data = await res.json().catch(() => ({}));
-    setUploading(false);
-    if (!res.ok) { toast(data.error || "Couldn't upload photo", "error"); return; }
-    setPhoto(data.user?.photoUrl || "");
-    setUser(data.user);
-    toast("Photo updated");
+    try {
+      // 1) get a signed URL, 2) upload the file straight to Supabase
+      //    (no serverless body limit), 3) save the URL on our side.
+      const signRes = await fetch("/api/profile/photo/sign", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext }),
+      });
+      const sign = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) throw new Error(sign.error || "Couldn't start the upload");
+
+      const put = await fetch(sign.uploadUrl, {
+        method: "PUT", headers: { "Content-Type": file.type, "x-upsert": "true" }, body: file,
+      });
+      if (!put.ok) throw new Error("Upload failed");
+
+      const saveRes = await fetch("/api/profile/photo", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext }),
+      });
+      const data = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok) throw new Error(data.error || "Couldn't save photo");
+
+      setPhoto(data.user?.photoUrl || "");
+      setUser(data.user);
+      toast("Photo updated");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't upload photo", "error");
+    } finally {
+      setUploading(false);
+    }
   }
 
   const steps = useMemo(() => profileSteps({ fullName: name, birthday, gender, favSport }), [name, birthday, gender, favSport]);
@@ -132,7 +155,8 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
             <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             <div>
               <span style={labelCss}>Birthday</span>
-              <Input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} hint="We'll surprise you with something on your special day." />
+              <DatePicker value={birthday} onChange={setBirthday} max={new Date().toISOString().slice(0, 10)} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-mute)", marginTop: 6, display: "block" }}>We&apos;ll surprise you with something on your special day.</span>
             </div>
           </div>
         </Card>
