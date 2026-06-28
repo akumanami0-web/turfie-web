@@ -33,6 +33,19 @@ model User {
   favourites   Favourite[]
 }
 
+model Otp {
+  id        String   @id @default(cuid())
+  channel   String   // "email" | "phone"
+  target    String   // email address or E.164 phone
+  purpose   String   // "signup" | "link_phone" | "change_email" | "verify"
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([channel, target, purpose])
+}
+
 model Favourite {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id])

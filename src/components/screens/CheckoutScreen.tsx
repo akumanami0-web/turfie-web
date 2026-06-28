@@ -6,6 +6,7 @@ import { Container, Display, CourtArt } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
 import { useSession } from "@/components/providers/session";
+import { PhoneLinkModal } from "@/components/screens/VerifyModals";
 import { inr, mmss } from "@/lib/format";
 import type { Turf } from "@/lib/types";
 
@@ -47,7 +48,8 @@ function loadRazorpay(): Promise<boolean> {
 export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
   const router = useRouter();
   const toast = useToast();
-  const { user } = useSession();
+  const { user, setUser } = useSession();
+  const [showPhone, setShowPhone] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [method, setMethod] = useState("upi");
   const [split, setSplit] = useState(false);
@@ -125,8 +127,13 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
     });
     if (!orderRes.ok) {
       const e = await orderRes.json().catch(() => ({}));
-      toast(e.error || "Couldn't start payment.", "error");
       setProcessing(false);
+      if (orderRes.status === 403 && e.needsPhone) {
+        if (user) { setShowPhone(true); }
+        else { toast("Please log in and verify your phone to book.", "error"); router.push("/login"); }
+        return;
+      }
+      toast(e.error || "Couldn't start payment.", "error");
       return;
     }
     const order = await orderRes.json();
@@ -153,6 +160,7 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
 
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingBottom: 64 }}>
+      {showPhone && <PhoneLinkModal onClose={() => setShowPhone(false)} onVerified={(u) => { setShowPhone(false); setUser(u); toast("Phone verified — you can complete your booking now"); }} />}
       <Container style={{ paddingTop: 24 }}>
         <button onClick={() => router.push(`/turf/${t.id}/book`)} style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--color-body)", marginBottom: 14 }}>
           <Icon name="arrowLeft" size={18} /> Back

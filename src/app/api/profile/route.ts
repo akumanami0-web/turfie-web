@@ -14,16 +14,8 @@ export async function PATCH(req: Request) {
   const name = String(body.name ?? "").trim();
   if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
 
-  const email = String(body.email ?? "").trim().toLowerCase();
-  if (!/\S+@\S+\.\S+/.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
-  // If the email changed, make sure it isn't taken by someone else.
-  if (email !== session.email) {
-    const clash = await prisma.user.findUnique({ where: { email } });
-    if (clash && clash.id !== session.id) {
-      return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
-    }
-  }
-
+  // Email is intentionally NOT editable here — it changes only via the
+  // phone-gated, OTP-verified /api/profile/email route.
   const birthday = body.birthday ? String(body.birthday) : null; // yyyy-mm-dd
   const genderRaw = body.gender ? String(body.gender) : null;
   const gender = genderRaw && GENDERS.includes(genderRaw) ? genderRaw : null;
@@ -35,7 +27,6 @@ export async function PATCH(req: Request) {
       name: name.split(/\s+/)[0],
       fullName: name,
       initials: initialsFrom(name),
-      email,
       birthday,
       gender,
       favSport,

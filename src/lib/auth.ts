@@ -69,6 +69,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
       gender: u.gender,
       favSport: u.favSport,
       photoUrl: u.photoUrl,
+      phoneVerified: u.phoneVerified,
     };
   } catch {
     return null;

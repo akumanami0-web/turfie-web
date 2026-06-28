@@ -6,6 +6,7 @@ import { Display, Eyebrow, AvatarStack } from "@/components/ui/layout-bits";
 import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
+import type { SessionUser } from "@/lib/types";
 
 const OAUTH_ERRORS: Record<string, string> = {
   provider_not_configured: "That sign-in option isn't configured yet.",
@@ -23,7 +24,11 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState("");
+  const [simulated, setSimulated] = useState(false);
   useEffect(() => setTab(mode), [mode]);
+  useEffect(() => { setAwaitingCode(false); setCode(""); }, [tab]);
   // surface ?error= from an OAuth callback failure
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get("error");
@@ -31,18 +36,49 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
   }, [toast]);
   const isLogin = tab === "login";
 
+  function finish(user: SessionUser) {
+    setUser(user);
+    toast(isLogin ? "Welcome back!" : "Account created — welcome to Turfie!");
+    router.push("/account");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const url = isLogin ? "/api/auth/login" : "/api/auth/register";
-    const body = isLogin ? { email, password } : { name, email, password };
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (isLogin) {
+      const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const data = await res.json();
+      setBusy(false);
+      if (!res.ok) { toast(data.error || "Something went wrong", "error"); return; }
+      finish(data.user);
+      return;
+    }
+    // signup: try to register; if email verification is required, send a code
+    const res = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
+    const data = await res.json();
+    if (res.ok) { setBusy(false); finish(data.user); return; }
+    if (res.status === 400 && data.needsCode) {
+      const s = await fetch("/api/otp/email/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "signup" }) });
+      const sd = await s.json().catch(() => ({}));
+      setBusy(false);
+      if (!s.ok) { toast(sd.error || "Couldn't send the code", "error"); return; }
+      setSimulated(!!sd.simulated);
+      setAwaitingCode(true);
+      toast("We sent a verification code to your email");
+      return;
+    }
+    setBusy(false);
+    toast(data.error || "Something went wrong", "error");
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const res = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password, code }) });
     const data = await res.json();
     setBusy(false);
-    if (!res.ok) { toast(data.error || "Something went wrong", "error"); return; }
-    setUser(data.user);
-    toast(isLogin ? "Welcome back!" : "Account created — welcome to Turfie!");
-    router.push("/account");
+    if (!res.ok) { toast(data.error || "Incorrect code", "error"); return; }
+    finish(data.user);
   }
 
   return (
@@ -61,13 +97,27 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
             ))}
           </div>
 
-          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {!isLogin && <Input label="Name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />}
-            <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-            {isLogin && <button type="button" onClick={() => toast("Reset link sent")} style={{ alignSelf: "flex-end", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--color-ink)" }}>Forgot password?</button>}
-            <Button type="submit" fullWidth size="lg" disabled={busy} iconRight={<Icon name="arrowRight" size={18} />}>{busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}</Button>
-          </form>
+          {awaitingCode ? (
+            <form onSubmit={submitCode} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)", margin: "0 0 4px" }}>Enter the 6-digit code we sent to <strong>{email}</strong>.</p>
+              <Input label="Verification code" placeholder="••••••" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
+              {simulated && (
+                <div style={{ padding: "10px 12px", background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-warning-content)" }}>
+                  Test mode — email delivery isn&apos;t connected yet; check the server logs for your code.
+                </div>
+              )}
+              <Button type="submit" fullWidth size="lg" disabled={busy || code.length < 4} iconRight={<Icon name="check" size={18} />}>{busy ? "Verifying…" : "Verify & create account"}</Button>
+              <button type="button" onClick={() => setAwaitingCode(false)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--color-body)" }}>← Back</button>
+            </form>
+          ) : (
+            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {!isLogin && <Input label="Name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />}
+              <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+              {isLogin && <button type="button" onClick={() => toast("Reset link sent")} style={{ alignSelf: "flex-end", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--color-ink)" }}>Forgot password?</button>}
+              <Button type="submit" fullWidth size="lg" disabled={busy} iconRight={<Icon name="arrowRight" size={18} />}>{busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}</Button>
+            </form>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "22px 0" }}>
             <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />

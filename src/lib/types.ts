@@ -78,4 +78,5 @@ export type SessionUser = {
   gender: string | null;
   favSport: string | null;
   photoUrl: string | null;
+  phoneVerified: boolean;
 };

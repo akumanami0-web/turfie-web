@@ -3,6 +3,8 @@ import { createOrder } from "@/lib/payments";
 import { ensureHold, SlotConflictError } from "@/lib/locks";
 import { getLockOwner } from "@/lib/owner";
 import { getTurf } from "@/lib/turfs";
+import { getSessionUser } from "@/lib/auth";
+import { twilioConfigured } from "@/lib/otp";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
@@ -12,6 +14,12 @@ export async function POST(req: Request) {
   const hours = Array.isArray(body.hours) ? (body.hours as number[]).map(Number) : [];
   if (!turfId || !dateKey || !hours.length) {
     return NextResponse.json({ error: "Invalid checkout request" }, { status: 400 });
+  }
+
+  // Require a verified phone before taking any payment (active once OTP is set up).
+  const sessionUser = await getSessionUser();
+  if (twilioConfigured() && !sessionUser?.phoneVerified) {
+    return NextResponse.json({ error: "Verify your phone number to book.", needsPhone: true }, { status: 403 });
   }
 
   // Never trust a client-supplied amount — compute the charge from the turf's

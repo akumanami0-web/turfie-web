@@ -7,6 +7,7 @@ import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { ImageCropper } from "@/components/ui/ImageCropper";
+import { PhoneLinkModal, ChangeEmailModal } from "@/components/screens/VerifyModals";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
 import { profileSteps, PROFILE_TOTAL, GENDER_OPTIONS } from "@/lib/profile";
@@ -40,12 +41,16 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
 
   const [name, setName] = useState(user.fullName || user.name || "");
   const [email, setEmail] = useState(user.email || "");
+  const [phone, setPhone] = useState(user.phone || "");
+  const [phoneVerified, setPhoneVerified] = useState(user.phoneVerified);
   const [birthday, setBirthday] = useState(user.birthday || "");
   const [gender, setGender] = useState(user.gender || "");
   const [favSport, setFavSport] = useState(user.favSport || "");
   const [photo, setPhoto] = useState(user.photoUrl || "");
   const [uploading, setUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showPhone, setShowPhone] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -109,7 +114,7 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, birthday: birthday || null, gender: gender || null, favSport: favSport || null }),
+      body: JSON.stringify({ name, birthday: birthday || null, gender: gender || null, favSport: favSport || null }),
     });
     const data = await res.json();
     setBusy(false);
@@ -122,6 +127,8 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 24, paddingBottom: 80 }}>
       {cropSrc && <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onDone={uploadCropped} />}
+      {showPhone && <PhoneLinkModal onClose={() => setShowPhone(false)} onVerified={(u) => { setShowPhone(false); setPhone(u.phone || ""); setPhoneVerified(true); setUser(u); }} />}
+      {showEmail && <ChangeEmailModal currentEmail={email} onClose={() => setShowEmail(false)} onVerified={(u) => { setShowEmail(false); setEmail(u.email); setUser(u); }} />}
       <Container style={{ maxWidth: 720 }}>
         <button onClick={() => router.push("/account")} style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--color-body)", padding: "4px 0", marginBottom: 14 }}>
           <Icon name="arrowLeft" size={18} /> Account
@@ -165,8 +172,37 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <Input label="Name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
-            <ReadOnlyField label="Phone number" value={user.phone || "Not linked"} note="The phone number associated with your account can't be changed." />
-            <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+            {/* Phone — linked once, then immutable */}
+            {phoneVerified ? (
+              <ReadOnlyField label="Phone number" value={phone} note="Verified — your phone number can't be changed." />
+            ) : (
+              <div>
+                <span style={labelCss}>Phone number</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "var(--color-canvas-soft)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "10px 12px 10px 16px" }}>
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 16, color: "var(--color-mute)" }}>Not linked</span>
+                  <Button size="sm" onClick={() => setShowPhone(true)} iconLeft={<Icon name="phone" size={15} />}>Add &amp; verify</Button>
+                </div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>
+                  <Icon name="shield" size={13} color="var(--color-mute)" /> Verify a phone to secure your account and make bookings.
+                </span>
+              </div>
+            )}
+
+            {/* Email — change requires a verified phone + email OTP */}
+            <div>
+              <span style={labelCss}>Email</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "var(--color-canvas-soft)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "10px 12px 10px 16px" }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 16, color: "var(--color-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</span>
+                <Button size="sm" variant="tertiary" disabled={!phoneVerified} onClick={() => setShowEmail(true)}>Change</Button>
+              </div>
+              {!phoneVerified && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>
+                  <Icon name="shield" size={13} color="var(--color-mute)" /> Link a verified phone number to change your email.
+                </span>
+              )}
+            </div>
+
             <div>
               <span style={labelCss}>Birthday</span>
               <DatePicker value={birthday} onChange={setBirthday} max={new Date().toISOString().slice(0, 10)} />

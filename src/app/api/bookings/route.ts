@@ -6,6 +6,7 @@ import { getTurf } from "@/lib/turfs";
 import { rowToBooking, getUserBookings } from "@/lib/bookings";
 import { verifyPayment } from "@/lib/payments";
 import { confirm, ensureHold, SlotConflictError } from "@/lib/locks";
+import { twilioConfigured } from "@/lib/otp";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -24,6 +25,14 @@ export async function POST(req: Request) {
   if (!turfId || !dateKey || !Array.isArray(hours) || !hours.length) {
     return NextResponse.json({ error: "Invalid booking" }, { status: 400 });
   }
+
+  // Phone verification is required to book — enforced once SMS/WhatsApp OTP is
+  // configured (so bookings keep working until the Twilio keys are added).
+  const sessionUser = await getSessionUser();
+  if (twilioConfigured() && !sessionUser?.phoneVerified) {
+    return NextResponse.json({ error: "Verify your phone number to book.", needsPhone: true }, { status: 403 });
+  }
+
   const turf = await getTurf(turfId);
   if (!turf) return NextResponse.json({ error: "Turf not found" }, { status: 404 });
 
