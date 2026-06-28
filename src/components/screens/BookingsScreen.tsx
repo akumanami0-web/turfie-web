@@ -38,8 +38,8 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="clock" size={15} color="var(--color-mute)" />{slotRange(b.startHour, b.durationHrs) || b.time} · {b.duration}</span>
           {b.unit && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="compass" size={15} color="var(--color-mute)" />{b.unit} {b.field}</span>}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginTop: "auto", paddingTop: 10, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18 }}>{inr(b.price)}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: "auto", paddingTop: 14, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{inr(b.price)}</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {b.status === "upcoming" && (<>
               <Button size="sm" variant="ghost" onClick={() => onCancel(b)}>Cancel</Button>
