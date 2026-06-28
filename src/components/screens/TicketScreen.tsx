@@ -6,7 +6,7 @@ import { Container, Display, Eyebrow, CourtArt } from "@/components/ui/layout-bi
 import { Icon } from "@/components/ui/Icon";
 import { QrCode } from "@/components/ui/QrCode";
 import { useToast } from "@/components/providers/toast";
-import { fmtDateShort } from "@/lib/format";
+import { fmtDateShort, slotRange } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export function TicketScreen({ booking: b, turfName, area, token }: { booking: Booking; turfName: string; area: string; token: string }) {
@@ -54,7 +54,7 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
 
           <div style={{ padding: 24 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
-              {[["Date", b.dateLabel], ["Time", b.time], [b.unit, `${b.unit} ${b.field}`], ["Booking", b.id]].map(([l, v]) => (
+              {[["Date", b.dateLabel], ["Time", slotRange(b.startHour, b.durationHrs) || b.time], [b.unit, `${b.unit} ${b.field}`], ["Booking", b.id]].map(([l, v]) => (
                 <div key={l}>
                   <div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--color-mute)" }}>{l}</div>
                   <div style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 700, color: "var(--color-ink)", marginTop: 2 }}>{v}</div>
@@ -107,6 +107,13 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
                 </Button>
               </div>
             )}
+
+            {/* brand footer */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 26, paddingTop: 20, borderTop: "1px solid var(--border-subtle)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/logo.svg" alt="Turfie" height={26} style={{ display: "block" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--color-mute)" }}>by Edinguy</span>
+            </div>
           </div>
         </Card>
       </Container>
