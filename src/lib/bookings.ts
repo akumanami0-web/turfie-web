@@ -29,6 +29,7 @@ export function rowToBooking(b: NonNullable<BookingRow>): Booking {
     refundPct: b.refundPct,
     refundAmount: b.refundAmount,
     cancelledAt: b.cancelledAt ? b.cancelledAt.getTime() : null,
+    checkedInAt: b.checkedInAt ? b.checkedInAt.getTime() : null,
   };
 }
 

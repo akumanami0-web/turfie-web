@@ -62,6 +62,7 @@ export type Booking = {
   refundPct?: number | null;
   refundAmount?: number | null;
   cancelledAt?: number | null;
+  checkedInAt?: number | null;
 };
 
 export type SessionUser = {

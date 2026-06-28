@@ -17,10 +17,10 @@ function statusBadge(s: string) {
   return <Badge variant="negative">Cancelled</Badge>;
 }
 
-function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack }: {
+function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack, onPass }: {
   b: Booking; turf: Turf;
   onCancel: (b: Booking) => void; onReschedule: (b: Booking) => void;
-  onRebook: (b: Booking) => void; onView: (b: Booking) => void; onTrack: () => void;
+  onRebook: (b: Booking) => void; onView: (b: Booking) => void; onTrack: () => void; onPass: (b: Booking) => void;
 }) {
   return (
     <Card tone="white" padding={0} style={{ overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -43,7 +43,8 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {b.status === "upcoming" && (<>
               <Button size="sm" variant="ghost" onClick={() => onCancel(b)}>Cancel</Button>
-              <Button size="sm" variant="primary" onClick={() => onReschedule(b)} iconLeft={<Icon name="calendar" size={15} />}>Reschedule</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onReschedule(b)} iconLeft={<Icon name="calendar" size={15} />}>Reschedule</Button>
+              <Button size="sm" variant="primary" onClick={() => onPass(b)} iconLeft={<Icon name="navigation" size={15} />}>{b.checkedInAt ? "Pass" : "View pass"}</Button>
             </>)}
             {b.status === "completed" && (<>
               <Button size="sm" variant="tertiary" onClick={() => onRebook(b)}>Rebook</Button>
@@ -234,7 +235,8 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
                   onReschedule={(bk) => setModal({ type: "reschedule", b: bk })}
                   onRebook={(bk) => router.push(`/turf/${bk.turfId}/book`)}
                   onView={(bk) => router.push(`/turf/${bk.turfId}`)}
-                  onTrack={() => router.push("/account/refunds")} />
+                  onTrack={() => router.push("/account/refunds")}
+                  onPass={(bk) => router.push(`/ticket/${bk.id}`)} />
               );
             })}
           </div>

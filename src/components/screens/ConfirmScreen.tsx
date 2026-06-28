@@ -64,9 +64,10 @@ export function ConfirmScreen({ turfs }: { turfs: Turf[] }) {
                 </div>
               ))}
             </div>
+            <Button fullWidth size="lg" onClick={() => router.push(`/ticket/${b.id}`)} iconLeft={<Icon name="navigation" size={18} />} style={{ marginBottom: 12 }}>View entry pass</Button>
             <div className="t-2btn" style={{ display: "flex", gap: 12 }}>
               <Button variant="tertiary" fullWidth onClick={() => router.push("/account/bookings")}>My bookings</Button>
-              <Button fullWidth onClick={() => router.push("/browse")} iconRight={<Icon name="arrowRight" size={18} />}>Book another</Button>
+              <Button variant="tertiary" fullWidth onClick={() => router.push("/browse")} iconRight={<Icon name="arrowRight" size={18} />}>Book another</Button>
             </div>
           </div>
         </Card>

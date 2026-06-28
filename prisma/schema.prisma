@@ -125,6 +125,7 @@ model Booking {
   refundPct    Int?
   refundAmount Int?
   cancelledAt  DateTime?
+  checkedInAt  DateTime? // set when a vendor scans the entry QR
   createdAt    DateTime  @default(now())
 
   @@index([userId])
