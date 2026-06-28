@@ -61,31 +61,37 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
     reader.readAsDataURL(file);
   }
 
-  // Step 2: cropped → upload the square JPEG straight to Supabase, then save.
+  // Step 2: cropped → upload the small square JPEG through our API.
   async function uploadCropped(blob: Blob) {
     setCropSrc(null);
     setUploading(true);
     try {
-      const signRes = await fetch("/api/profile/photo/sign", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext: "jpg" }),
-      });
-      const sign = await signRes.json().catch(() => ({}));
-      if (!signRes.ok) throw new Error(sign.error || "Couldn't start the upload");
-
-      const put = await fetch(sign.uploadUrl, { method: "PUT", headers: { "Content-Type": "image/jpeg", "x-upsert": "true" }, body: blob });
-      if (!put.ok) throw new Error("Upload failed");
-
-      const saveRes = await fetch("/api/profile/photo", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: sign.path }),
-      });
-      const data = await saveRes.json().catch(() => ({}));
-      if (!saveRes.ok) throw new Error(data.error || "Couldn't save photo");
-
+      const fd = new FormData();
+      fd.append("file", blob, "avatar.jpg");
+      const res = await fetch("/api/profile/photo", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Couldn't upload photo");
       setPhoto(data.user?.photoUrl || "");
       setUser(data.user);
       toast("Photo updated");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't upload photo", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removePhoto() {
+    setUploading(true);
+    try {
+      const res = await fetch("/api/profile/photo", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Couldn't remove photo");
+      setPhoto("");
+      setUser(data.user);
+      toast("Photo removed");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't remove photo", "error");
     } finally {
       setUploading(false);
     }
@@ -152,6 +158,9 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
               </button>
             </div>
             <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)" }}>{uploading ? "Uploading…" : photo ? "Change profile photo" : "Add a profile photo"}</span>
+            {photo && !uploading && (
+              <button onClick={removePhoto} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--color-negative)" }}>Remove photo</button>
+            )}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

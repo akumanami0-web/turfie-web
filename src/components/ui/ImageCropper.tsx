@@ -5,14 +5,19 @@ import { Icon } from "./Icon";
 
 const VIEW = 300;   // on-screen crop viewport (square)
 const OUT = 1024;   // exported avatar resolution
+const MAX_ZOOM = 4;
 
-/** Mandatory square/circle crop step before uploading an avatar.
-    Drag to reposition, slider to zoom, Done to export a JPEG blob. */
+/** Mandatory crop step before uploading an avatar.
+    Drag (one finger) to reposition, pinch (two fingers) or scroll to zoom. */
 export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel: () => void; onDone: (blob: Blob) => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+
+  // active touch/mouse pointers for pan + pinch
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const pinchStart = useRef<{ dist: number; zoom: number } | null>(null);
 
   useEffect(() => {
     const i = new Image();
@@ -25,7 +30,7 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
   const dispW = img ? img.width * scale : 0;
   const dispH = img ? img.height * scale : 0;
 
-  // keep the image covering the viewport
+  // keep the image covering the viewport at all times
   const clamp = useCallback((p: { x: number; y: number }) => {
     const maxX = Math.max(0, (dispW - VIEW) / 2);
     const maxY = Math.max(0, (dispH - VIEW) / 2);
@@ -34,15 +39,40 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
 
   useEffect(() => { setPan((p) => clamp(p)); }, [zoom, clamp]);
 
+  const dist = () => {
+    const pts = [...pointers.current.values()];
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  };
+
   function onPointerDown(e: React.PointerEvent) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+    } else if (pointers.current.size === 2) {
+      pinchStart.current = { dist: dist(), zoom };
+      dragStart.current = null;
+    }
   }
   function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current) return;
-    setPan(clamp({ x: drag.current.px + (e.clientX - drag.current.x), y: drag.current.py + (e.clientY - drag.current.y) }));
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size >= 2 && pinchStart.current) {
+      const ratio = dist() / pinchStart.current.dist;
+      setZoom(Math.min(MAX_ZOOM, Math.max(1, pinchStart.current.zoom * ratio)));
+    } else if (dragStart.current) {
+      setPan(clamp({ x: dragStart.current.px + (e.clientX - dragStart.current.x), y: dragStart.current.py + (e.clientY - dragStart.current.y) }));
+    }
   }
-  function onPointerUp() { drag.current = null; }
+  function onPointerUp(e: React.PointerEvent) {
+    pointers.current.delete(e.pointerId);
+    pinchStart.current = null;
+    const rest = [...pointers.current.values()][0];
+    dragStart.current = rest ? { x: rest.x, y: rest.y, px: pan.x, py: pan.y } : null;
+  }
+  function onWheel(e: React.WheelEvent) {
+    setZoom((z) => Math.min(MAX_ZOOM, Math.max(1, z - e.deltaY * 0.0015)));
+  }
 
   function done() {
     if (!img) return;
@@ -52,13 +82,10 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
     if (!ctx) return;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, OUT, OUT);
-    // source rect under the viewport, mapped to image pixels
     const imageLeft = (VIEW - dispW) / 2 + pan.x;
     const imageTop = (VIEW - dispH) / 2 + pan.y;
-    const sx = -imageLeft / scale;
-    const sy = -imageTop / scale;
     const sSize = VIEW / scale;
-    ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+    ctx.drawImage(img, -imageLeft / scale, -imageTop / scale, sSize, sSize, 0, 0, OUT, OUT);
     canvas.toBlob((b) => { if (b) onDone(b); }, "image/jpeg", 0.92);
   }
 
@@ -70,8 +97,8 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
           <button onClick={onCancel} aria-label="Cancel" style={{ background: "none", border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}><Icon name="x" size={22} color="var(--color-mute)" /></button>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-          <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}
             style={{ position: "relative", width: VIEW, height: VIEW, maxWidth: "100%", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--color-canvas-soft)", cursor: "grab", touchAction: "none" }}>
             {img && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -82,11 +109,9 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <Icon name="search" size={16} color="var(--color-mute)" />
-          <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))}
-            style={{ flex: 1, accentColor: "var(--color-primary)" }} aria-label="Zoom" />
-        </div>
+        <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)", margin: "0 0 18px" }}>
+          Drag to reposition · pinch or scroll to zoom
+        </p>
 
         <div style={{ display: "flex", gap: 12 }}>
           <Button variant="tertiary" fullWidth onClick={onCancel}>Cancel</Button>
