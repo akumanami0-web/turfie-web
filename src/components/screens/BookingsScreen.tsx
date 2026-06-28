@@ -38,21 +38,21 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="clock" size={15} color="var(--color-mute)" />{slotRange(b.startHour, b.durationHrs) || b.time} · {b.duration}</span>
           {b.unit && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="compass" size={15} color="var(--color-mute)" />{b.unit} {b.field}</span>}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: "auto", paddingTop: 14, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{inr(b.price)}</span>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ marginTop: "auto", paddingTop: 14 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1, marginBottom: 12 }}>{inr(b.price)}</div>
+          <div style={{ display: "flex", gap: 8 }}>
             {b.status === "upcoming" && (<>
-              <Button size="sm" variant="ghost" onClick={() => onCancel(b)}>Cancel</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onReschedule(b)} iconLeft={<Icon name="calendar" size={15} />}>Reschedule</Button>
-              <Button size="sm" variant="primary" onClick={() => onPass(b)} iconLeft={<Icon name="navigation" size={15} />}>{b.checkedInAt ? "Pass" : "View pass"}</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onCancel(b)} style={{ flex: 1, padding: "8px 6px" }}>Cancel</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onReschedule(b)} style={{ flex: 1, padding: "8px 6px" }}>Reschedule</Button>
+              <Button size="sm" variant="primary" onClick={() => onPass(b)} style={{ flex: 1, padding: "8px 6px" }}>{b.checkedInAt ? "Pass" : "View pass"}</Button>
             </>)}
             {b.status === "completed" && (<>
-              <Button size="sm" variant="tertiary" onClick={() => onRebook(b)}>Rebook</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onView(b)}>View turf</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onRebook(b)} style={{ flex: 1 }}>Rebook</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
             </>)}
             {b.status === "cancelled" && (<>
-              <Button size="sm" variant="ghost" onClick={onTrack} iconLeft={<Icon name="refresh" size={15} />}>Track refund</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onView(b)}>View turf</Button>
+              <Button size="sm" variant="tertiary" onClick={onTrack} iconLeft={<Icon name="refresh" size={15} />} style={{ flex: 1 }}>Track refund</Button>
+              <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
             </>)}
           </div>
         </div>
