@@ -104,7 +104,7 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
           </div>
         </div>
 
-        <Button variant="tertiary" fullWidth onClick={async () => { await logout(); toast("Logged out"); router.push("/"); }} iconLeft={<Icon name="x" size={16} color="var(--color-negative)" />} style={{ marginTop: 28, color: "var(--color-negative)", border: "1px solid var(--color-negative-pale)" }}>Log out</Button>
+        <Button variant="tertiary" fullWidth onClick={async () => { await logout(); toast("Logged out"); router.push("/"); }} style={{ marginTop: 28, color: "var(--color-negative)" }}>Log out</Button>
       </Container>
     </div>
   );
