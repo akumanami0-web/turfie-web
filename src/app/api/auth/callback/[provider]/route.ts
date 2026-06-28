@@ -29,19 +29,34 @@ async function handle(req: Request, provider: string, code: string | null, state
   if (!profile.email) return fail("no_email");
 
   const email = profile.email.toLowerCase();
-  // New social sign-ups land on the profile page to set their name + details;
-  // returning users go straight to their account.
-  const existing = await prisma.user.findUnique({ where: { email } });
-  const user = existing ?? await prisma.user.create({
-    data: {
-      email,
-      name: profile.name.split(/\s+/)[0],
-      fullName: profile.name,
-      initials: initialsFrom(profile.name),
-    },
-  });
+  // Identify the account by the stable Google id (sub), NOT the email — so a
+  // user who later changes their email in Turfie can still sign in with Google
+  // and lands on the same account (no duplicate).
+  let user = profile.sub ? await prisma.user.findUnique({ where: { googleId: profile.sub } }) : null;
+  let isNew = false;
+
+  if (!user) {
+    // First Google sign-in: link to an existing email/password account if the
+    // email matches, otherwise create a fresh account.
+    const byEmail = await prisma.user.findUnique({ where: { email } });
+    if (byEmail) {
+      user = await prisma.user.update({ where: { id: byEmail.id }, data: { googleId: profile.sub || null } });
+    } else {
+      isNew = true;
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: profile.name.split(/\s+/)[0],
+          fullName: profile.name,
+          initials: initialsFrom(profile.name),
+          googleId: profile.sub || null,
+        },
+      });
+    }
+  }
+
   await setSession(user.id);
-  return NextResponse.redirect(`${base}${existing ? "/account" : "/account/edit?welcome=1"}`);
+  return NextResponse.redirect(`${base}${isNew ? "/account/edit?welcome=1" : "/account"}`);
 }
 
 // Google uses the GET redirect.

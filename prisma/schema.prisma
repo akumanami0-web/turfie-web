@@ -26,6 +26,8 @@ model User {
   gender       String?  // male | female | other | prefer_not
   favSport     String?  // sport id
   photoUrl     String?  // Supabase Storage public URL
+  googleId     String?  @unique // stable Google account id (sub) — survives email changes
+  phoneVerified Boolean @default(false)
   joinedAt     DateTime @default(now())
   bookings     Booking[]
   favourites   Favourite[]

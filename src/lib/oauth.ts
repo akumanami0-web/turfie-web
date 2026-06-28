@@ -61,7 +61,7 @@ async function appleClientSecret() {
     .sign(key);
 }
 
-export type OAuthProfile = { email: string; name: string };
+export type OAuthProfile = { email: string; name: string; sub: string };
 
 /** Exchange the authorization code for the user's verified email + name. */
 export async function exchangeCode(provider: OAuthProvider, base: string, code: string, appleUser?: { name?: { firstName?: string; lastName?: string } }): Promise<OAuthProfile> {
@@ -81,7 +81,7 @@ export async function exchangeCode(provider: OAuthProvider, base: string, code: 
     const { payload } = await jwtVerify(id_token, GOOGLE_JWKS, { issuer: ["https://accounts.google.com", "accounts.google.com"], audience: process.env.GOOGLE_CLIENT_ID });
     const email = String(payload.email || "");
     const name = String(payload.name || email.split("@")[0] || "Player");
-    return { email, name };
+    return { email, name, sub: String(payload.sub || "") };
   }
 
   // apple
@@ -99,5 +99,5 @@ export async function exchangeCode(provider: OAuthProvider, base: string, code: 
   const email = String(payload.email || "");
   const nm = appleUser?.name;
   const name = [nm?.firstName, nm?.lastName].filter(Boolean).join(" ") || email.split("@")[0] || "Player";
-  return { email, name };
+  return { email, name, sub: String(payload.sub || "") };
 }

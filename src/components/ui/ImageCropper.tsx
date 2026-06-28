@@ -3,18 +3,19 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "./primitives";
 import { Icon } from "./Icon";
 
-const VIEW = 300;   // on-screen crop viewport (square)
 const OUT = 1024;   // exported avatar resolution
 const MAX_ZOOM = 4;
 
 /** Mandatory crop step before uploading an avatar.
-    Drag (one finger) to reposition, pinch (two fingers) or scroll to zoom. */
+    Drag (one finger) to reposition, pinch (two fingers) or scroll to zoom.
+    The viewport is measured so it's always a true square (no stretching). */
 export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel: () => void; onDone: (blob: Blob) => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
+  const [view, setView] = useState(280);          // actual rendered viewport size (px)
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // active touch/mouse pointers for pan + pinch
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const pinchStart = useRef<{ dist: number; zoom: number } | null>(null);
@@ -25,19 +26,29 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
     i.src = src;
   }, [src]);
 
-  const base = img ? Math.max(VIEW / img.width, VIEW / img.height) : 1;
+  // measure the (square) viewport so the crop maths use real pixels
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const measure = () => setView(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const base = img ? Math.max(view / img.width, view / img.height) : 1;
   const scale = base * zoom;
   const dispW = img ? img.width * scale : 0;
   const dispH = img ? img.height * scale : 0;
 
-  // keep the image covering the viewport at all times
   const clamp = useCallback((p: { x: number; y: number }) => {
-    const maxX = Math.max(0, (dispW - VIEW) / 2);
-    const maxY = Math.max(0, (dispH - VIEW) / 2);
+    const maxX = Math.max(0, (dispW - view) / 2);
+    const maxY = Math.max(0, (dispH - view) / 2);
     return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
-  }, [dispW, dispH]);
+  }, [dispW, dispH, view]);
 
-  useEffect(() => { setPan((p) => clamp(p)); }, [zoom, clamp]);
+  useEffect(() => { setPan((p) => clamp(p)); }, [zoom, view, clamp]);
 
   const dist = () => {
     const pts = [...pointers.current.values()];
@@ -82,9 +93,9 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
     if (!ctx) return;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, OUT, OUT);
-    const imageLeft = (VIEW - dispW) / 2 + pan.x;
-    const imageTop = (VIEW - dispH) / 2 + pan.y;
-    const sSize = VIEW / scale;
+    const imageLeft = (view - dispW) / 2 + pan.x;
+    const imageTop = (view - dispH) / 2 + pan.y;
+    const sSize = view / scale;
     ctx.drawImage(img, -imageLeft / scale, -imageTop / scale, sSize, sSize, 0, 0, OUT, OUT);
     canvas.toBlob((b) => { if (b) onDone(b); }, "image/jpeg", 0.92);
   }
@@ -97,16 +108,16 @@ export function ImageCropper({ src, onCancel, onDone }: { src: string; onCancel:
           <button onClick={onCancel} aria-label="Cancel" style={{ background: "none", border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}><Icon name="x" size={22} color="var(--color-mute)" /></button>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}
-            style={{ position: "relative", width: VIEW, height: VIEW, maxWidth: "100%", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--color-canvas-soft)", cursor: "grab", touchAction: "none" }}>
-            {img && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" src={src} draggable={false} style={{ position: "absolute", left: "50%", top: "50%", width: dispW, height: dispH, transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))`, userSelect: "none", pointerEvents: "none" }} />
-            )}
-            {/* circular crop guide: darken everything outside the circle */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "50%", boxShadow: "0 0 0 2000px rgba(14,15,12,.45)", border: "2px solid var(--color-primary)" }} />
-          </div>
+        <div
+          ref={boxRef}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}
+          style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--color-canvas-soft)", cursor: "grab", touchAction: "none", marginBottom: 12 }}>
+          {img && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" src={src} draggable={false} style={{ position: "absolute", left: "50%", top: "50%", width: dispW, height: dispH, transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))`, userSelect: "none", pointerEvents: "none" }} />
+          )}
+          {/* circular crop guide: darken everything outside the circle */}
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "50%", boxShadow: "0 0 0 2000px rgba(14,15,12,.45)", border: "2px solid var(--color-primary)" }} />
         </div>
 
         <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)", margin: "0 0 18px" }}>
