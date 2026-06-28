@@ -12,7 +12,14 @@ export function oauthEnabled() {
 }
 
 export function appBaseUrl(req: Request) {
+  // Explicit override wins — set APP_URL=https://turfie-web.vercel.app to pin
+  // the exact redirect URI Google must have on its allow-list.
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  // Otherwise derive the public origin from the proxy headers Vercel sets,
+  // falling back to the request URL.
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  if (host) return `${proto}://${host}`;
   const u = new URL(req.url);
   return `${u.protocol}//${u.host}`;
 }

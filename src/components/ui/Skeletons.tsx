@@ -139,9 +139,9 @@ export function BrowseSkeleton() {
 /* ─────────────────────────── My bookings ─────────────────────────── */
 function BookingRowSkel() {
   return (
-    <div style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "stretch" }}>
-      <Art minHeight={150} />
-      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
+      <Skel w="100%" h={150} r={0} />
+      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1 }}><Skel w="70%" h={19} style={{ marginBottom: 7 }} /><Skel w="45%" h={13} /></div>
           <Skel w={74} h={24} r={999} />
@@ -174,8 +174,8 @@ export function BookingsSkeleton({ rows = 4 }: { rows?: number }) {
 function RefundCardSkel() {
   return (
     <Card pad={0} style={{ overflow: "hidden" }}>
-      <div style={{ padding: "20px 22px", display: "flex", gap: 14, alignItems: "center", borderBottom: "1px solid var(--border-subtle)" }}>
-        <Skel w={52} h={52} r={12} />
+      <Skel w="100%" h={140} r={0} />
+      <div style={{ padding: "18px 22px", display: "flex", gap: 14, alignItems: "flex-start", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)" }}>
         <div style={{ flex: 1 }}><Skel w="50%" h={18} style={{ marginBottom: 8 }} /><Skel w="70%" h={13} /></div>
         <div style={{ textAlign: "right" }}><Skel w={80} h={20} style={{ marginBottom: 6, marginLeft: "auto" }} /><Skel w={70} h={20} r={999} style={{ marginLeft: "auto" }} /></div>
       </div>

@@ -23,9 +23,9 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
   onRebook: (b: Booking) => void; onView: (b: Booking) => void; onTrack: () => void;
 }) {
   return (
-    <Card tone="white" padding={0} style={{ overflow: "hidden", display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "stretch" }}>
-      <CourtArt sport={b.sport} height="100%" style={{ minHeight: 120 }} />
-      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+    <Card tone="white" padding={0} style={{ overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
+      <CourtArt sport={b.sport} height={150} />
+      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, lineHeight: 1.15 }}>{turf.name}</div>

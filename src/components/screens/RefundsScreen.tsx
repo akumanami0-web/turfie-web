@@ -59,13 +59,13 @@ function RefundCard({ b, turf, onHelp, onRebook }: { b: Booking; turf: Turf; onH
   const pct = b.refundPct != null ? b.refundPct : 100;
   return (
     <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: "20px 22px", display: "flex", gap: 14, alignItems: "center", borderBottom: "1px solid var(--border-subtle)" }}>
-        <div style={{ width: 52, height: 52, borderRadius: "var(--radius-md)", overflow: "hidden", flexShrink: 0 }}><CourtArt sport={b.sport} height={52} /></div>
+      <CourtArt sport={b.sport} height={140} />
+      <div style={{ padding: "18px 22px", display: "flex", gap: 14, alignItems: "flex-start", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, lineHeight: 1.1 }}>{turf.name}</div>
           <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)", marginTop: 3 }}>{b.id} · {b.dateLabel} · {slotRange(b.startHour, b.durationHrs) || b.time}</div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20 }}>{inr(amount)}</div>
           <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--color-mute)", marginTop: 1 }}>{pct === 100 ? "Full refund" : pct === 50 ? "50% refund" : "No refund"}{pct > 0 && pct < 100 ? ` of ${inr(b.price)}` : ""}</div>
           <Badge variant={STAGE_TONE[stage]} style={{ marginTop: 4, fontSize: 11.5 }}>{cur.label}</Badge>
