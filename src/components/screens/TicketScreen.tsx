@@ -12,7 +12,7 @@ import type { Booking } from "@/lib/types";
 export function TicketScreen({ booking: b, turfName, area, token }: { booking: Booking; turfName: string; area: string; token: string }) {
   const router = useRouter();
   const toast = useToast();
-  const [busyWallet, setBusyWallet] = useState<"google" | "apple" | null>(null);
+  const [walletBusy, setWalletBusy] = useState(false);
 
   // The QR opens the vendor scan page with this signed token.
   const qrValue = useMemo(() => {
@@ -22,15 +22,18 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
 
   const checkedIn = !!b.checkedInAt;
 
-  async function addToWallet(platform: "google" | "apple") {
-    setBusyWallet(platform);
+  async function addToWallet() {
+    // Pick the wallet that fits the device: Apple Wallet on iOS, Google Wallet elsewhere.
+    const isApple = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const platform = isApple ? "apple" : "google";
+    setWalletBusy(true);
     try {
       const res = await fetch(`/api/tickets/${b.id}/wallet?platform=${platform}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { toast(data.error || "Couldn't add to wallet", "warning"); return; }
       if (data.url) window.location.href = data.url;
     } finally {
-      setBusyWallet(null);
+      setWalletBusy(false);
     }
   }
 
@@ -98,12 +101,9 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
 
             {/* wallet */}
             {!checkedIn && b.status !== "cancelled" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-                <Button variant="tertiary" fullWidth disabled={busyWallet !== null} onClick={() => addToWallet("google")} iconLeft={<Icon name="wallet" size={17} />}>
-                  {busyWallet === "google" ? "Opening…" : "Add to Google Wallet"}
-                </Button>
-                <Button variant="tertiary" fullWidth disabled={busyWallet !== null} onClick={() => addToWallet("apple")} iconLeft={<Icon name="wallet" size={17} />}>
-                  {busyWallet === "apple" ? "Opening…" : "Add to Apple Wallet"}
+              <div style={{ marginTop: 20 }}>
+                <Button variant="tertiary" fullWidth disabled={walletBusy} onClick={addToWallet} iconLeft={<Icon name="wallet" size={17} />}>
+                  {walletBusy ? "Opening…" : "Add to wallet"}
                 </Button>
               </div>
             )}
