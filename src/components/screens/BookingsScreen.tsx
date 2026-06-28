@@ -8,7 +8,7 @@ import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
 import { refundQuote, RESCHEDULE_FREE, RESCHEDULE_FEE } from "@/lib/content";
 import { turfHours } from "@/lib/turf-utils";
-import { nextDays, fmtHour, hourRange, inr } from "@/lib/format";
+import { nextDays, hourRange, slotRange, inr } from "@/lib/format";
 import type { Booking, Turf } from "@/lib/types";
 
 function statusBadge(s: string) {
@@ -35,7 +35,7 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
         </div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="calendar" size={15} color="var(--color-mute)" />{b.dateLabel}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="clock" size={15} color="var(--color-mute)" />{b.time} · {b.duration}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="clock" size={15} color="var(--color-mute)" />{slotRange(b.startHour, b.durationHrs) || b.time} · {b.duration}</span>
           {b.unit && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="compass" size={15} color="var(--color-mute)" />{b.unit} {b.field}</span>}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginTop: "auto", paddingTop: 10, flexWrap: "wrap" }}>
@@ -118,12 +118,11 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
   const free = (h: number) => hours.includes(h) && !takenSet.has(h) && !heldSet.has(h);
   const canStart = (h: number) => { for (let i = 0; i < durHrs; i++) if (!free(h + i)) return false; return true; };
   const newLabel = days.find((d) => d.key === date)?.label || "";
-  const newTime = start != null ? fmtHour(start) : null;
   const newRange = start != null ? hourRange(start, durHrs) : null;
 
   function confirm() {
     if (start == null) return;
-    onConfirm({ dateLabel: newLabel, dateKey: date, time: newTime!, startHour: start, duration: `${durHrs} hr${durHrs > 1 ? "s" : ""}`, durationHrs: durHrs });
+    onConfirm({ dateLabel: newLabel, dateKey: date, time: slotRange(start, durHrs)!, startHour: start, duration: `${durHrs} hr${durHrs > 1 ? "s" : ""}`, durationHrs: durHrs });
   }
 
   return (
@@ -131,7 +130,7 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
       <Eyebrow style={{ marginBottom: 6 }}>Reschedule</Eyebrow>
       <Display size={24} style={{ marginBottom: 4 }}>{turf.name}</Display>
       <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", margin: "0 0 14px" }}>
-        Currently {b.dateLabel} · {b.time} · {b.unit || "Field"} {field}. Pick a new date and time.
+        Currently {b.dateLabel} · {slotRange(b.startHour, b.durationHrs) || b.time} · {b.unit || "Field"} {field}. Pick a new date and time.
       </p>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 14px", borderRadius: "var(--radius-lg)", background: resched.fee === 0 ? "var(--color-primary-pale)" : "var(--color-warning-pale)", marginBottom: 18 }}>
         <Icon name={resched.fee === 0 ? "refresh" : "wallet"} size={17} color="var(--color-ink-deep)" />

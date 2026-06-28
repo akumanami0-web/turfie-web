@@ -31,6 +31,13 @@ export function hourRange(start: number, dur: number) {
   return `${hourShort(start)} – ${hourShort(start + dur)}`;
 }
 
+/** Full clock range for a booked slot, e.g. "5:00 PM – 6:00 PM".
+    Returns null when the start hour is unknown (caller can fall back). */
+export function slotRange(start: number | null | undefined, dur: number | null | undefined) {
+  if (start == null) return null;
+  return `${fmtHour(start)} – ${fmtHour(start + (dur || 1))}`;
+}
+
 export const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

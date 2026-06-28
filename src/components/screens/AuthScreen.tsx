@@ -14,7 +14,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   no_email: "That account didn't share an email address.",
 };
 
-export function AuthScreen({ mode = "login", providers = { google: false, apple: false } }: { mode?: "login" | "signup"; providers?: { google: boolean; apple: boolean } }) {
+export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
   const router = useRouter();
   const { setUser } = useSession();
   const toast = useToast();
@@ -74,18 +74,10 @@ export function AuthScreen({ mode = "login", providers = { google: false, apple:
             <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>or</span>
             <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
           </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            {(["Google"] as const).map((p) => {
-              const key = p.toLowerCase() as "google";
-              const enabled = providers[key];
-              return (
-                <Button key={p} variant="tertiary" fullWidth iconLeft={<Icon name={key} size={18} />}
-                  onClick={() => { if (enabled) { window.location.href = `/api/auth/oauth/${key}`; } else { toast(`${p} sign-in needs OAuth keys (see .env.example)`, "warning"); } }}>
-                  Continue with {p}
-                </Button>
-              );
-            })}
-          </div>
+          <Button variant="tertiary" fullWidth iconLeft={<Icon name="google" size={18} />}
+            onClick={() => { window.location.href = "/api/auth/oauth/google"; }}>
+            Continue with Google
+          </Button>
         </div>
       </div>
 

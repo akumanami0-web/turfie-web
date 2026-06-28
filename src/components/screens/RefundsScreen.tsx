@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Badge, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow, CourtArt } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
-import { inr, fmtDateShort } from "@/lib/format";
+import { inr, fmtDateShort, slotRange } from "@/lib/format";
 import type { Booking, Turf } from "@/lib/types";
 
 const REFUND_STAGES = [
@@ -63,7 +63,7 @@ function RefundCard({ b, turf, onHelp, onRebook }: { b: Booking; turf: Turf; onH
         <div style={{ width: 52, height: 52, borderRadius: "var(--radius-md)", overflow: "hidden", flexShrink: 0 }}><CourtArt sport={b.sport} height={52} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, lineHeight: 1.1 }}>{turf.name}</div>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)", marginTop: 3 }}>{b.id} · {b.dateLabel} · {b.time}</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)", marginTop: 3 }}>{b.id} · {b.dateLabel} · {slotRange(b.startHour, b.durationHrs) || b.time}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20 }}>{inr(amount)}</div>
