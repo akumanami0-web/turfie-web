@@ -29,10 +29,11 @@ async function handle(req: Request, provider: string, code: string | null, state
   if (!profile.email) return fail("no_email");
 
   const email = profile.email.toLowerCase();
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: {
+  // New social sign-ups land on the profile page to set their name + details;
+  // returning users go straight to their account.
+  const existing = await prisma.user.findUnique({ where: { email } });
+  const user = existing ?? await prisma.user.create({
+    data: {
       email,
       name: profile.name.split(/\s+/)[0],
       fullName: profile.name,
@@ -40,7 +41,7 @@ async function handle(req: Request, provider: string, code: string | null, state
     },
   });
   await setSession(user.id);
-  return NextResponse.redirect(`${base}/account`);
+  return NextResponse.redirect(`${base}${existing ? "/account" : "/account/edit?welcome=1"}`);
 }
 
 // Google uses the GET redirect.

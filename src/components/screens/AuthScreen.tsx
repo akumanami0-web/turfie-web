@@ -62,7 +62,7 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
           </div>
 
           <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {!isLogin && <Input label="Full name" placeholder="Aarav Sharma" value={name} onChange={(e) => setName(e.target.value)} />}
+            {!isLogin && <Input label="Name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />}
             <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
             {isLogin && <button type="button" onClick={() => toast("Reset link sent")} style={{ alignSelf: "flex-end", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--color-ink)" }}>Forgot password?</button>}

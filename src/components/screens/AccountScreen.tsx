@@ -7,6 +7,7 @@ import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
 import { useFavourites } from "@/lib/useFavourites";
+import { profileSteps } from "@/lib/profile";
 import type { Booking } from "@/lib/types";
 
 export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; initialFav: string[] }) {
@@ -22,14 +23,16 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
   const completed = bookings.filter((b) => b.status === "completed");
   const played = completed.length;
   const hoursPlayed = completed.reduce((s, b) => s + (b.durationHrs || 1), 0);
+  const steps = profileSteps(user);
+  const profilePct = Math.round((steps.done / steps.total) * 100);
 
   const menu: [string, string, string, () => void][] = [
     ["calendar", "My bookings", `${upcoming} upcoming`, () => router.push("/account/bookings")],
     ["refresh", "Refunds", refundCount ? `${refundCount} tracked` : "Track refunds", () => router.push("/account/refunds")],
     ["heart", "Saved turfs", `${fav.length} saved`, () => router.push("/account/saved")],
+    ["edit", "Edit profile", "Name, birthday, more", () => router.push("/account/edit")],
     ["compass", "Payment methods", "UPI · Card · Wallet", () => toast("Payments coming soon")],
     ["shield", "Privacy & security", "Password, data", () => toast("Settings coming soon")],
-    ["users", "My squad", "Invite friends", () => toast("Squad coming soon")],
   ];
 
   return (
@@ -52,6 +55,27 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {steps.done < steps.total && (
+              <Card tone="white" interactive onClick={() => router.push("/account/edit")} style={{ padding: 22, cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ position: "relative", width: 74, height: 74, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(var(--color-primary) ${profilePct}%, var(--border-subtle) ${profilePct}%)`, flexShrink: 0 }}>
+                    <div style={{ background: "var(--color-canvas)", borderRadius: "50%", padding: 4 }}>
+                      <Avatar initials={user.initials} size={56} />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, lineHeight: 1.1 }}>{user.fullName}</div>
+                    {user.phone && <div style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", marginTop: 3 }}>{user.phone}</div>}
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 700, color: "var(--color-ink-deep)", marginTop: 5 }}>{steps.done} / {steps.total} steps done</div>
+                  </div>
+                </div>
+                <div style={{ height: 1, background: "var(--border-subtle)", margin: "18px 0" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, lineHeight: 1.25 }}>Complete your profile, so we can surprise you on your special days!</span>
+                  <span style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid var(--color-ink)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="arrowRight" size={18} /></span>
+                </div>
+              </Card>
+            )}
             <Card tone="dark" style={{ padding: 26, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", right: -20, bottom: -30, opacity: 0.16 }}><SportGlyph sport="football" size={170} color="var(--color-primary)" stroke={2} /></div>
               <div style={{ position: "relative", zIndex: 1 }}>

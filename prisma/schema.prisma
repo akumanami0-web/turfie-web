@@ -22,6 +22,9 @@ model User {
   city         String   @default("Mumbai")
   level        String   @default("Intermediate")
   role         String   @default("player") // player | operator
+  birthday     String?  // yyyy-mm-dd
+  gender       String?  // male | female | other | prefer_not
+  favSport     String?  // sport id
   joinedAt     DateTime @default(now())
   bookings     Booking[]
   favourites   Favourite[]

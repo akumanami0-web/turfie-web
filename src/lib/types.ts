@@ -74,4 +74,7 @@ export type SessionUser = {
   city: string;
   level: string;
   role: string;
+  birthday: string | null;
+  gender: string | null;
+  favSport: string | null;
 };

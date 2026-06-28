@@ -257,6 +257,36 @@ export function AccountSkeleton() {
   );
 }
 
+/* ─────────────────────────── Edit profile ─────────────────────────── */
+export function ProfileSkeleton() {
+  return (
+    <Page>
+      <Skel w={88} h={20} style={{ marginBottom: 14 }} />
+      <Card pad={26} style={{ marginBottom: 22 }}>
+        <Skel w={200} h={26} r={8} style={{ marginBottom: 18 }} />
+        <Skel w="100%" h={8} r={999} style={{ marginBottom: 8 }} />
+        <Skel w={110} h={13} />
+        <div style={{ height: 1, background: "var(--border-subtle)", margin: "18px 0 22px" }} />
+        <Skel w={96} h={96} r={999} style={{ margin: "0 auto 24px" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i}><Skel w={90} h={14} style={{ marginBottom: 8 }} /><Skel w="100%" h={48} r={12} /></div>
+          ))}
+        </div>
+      </Card>
+      <Card pad={26} style={{ marginBottom: 22 }}>
+        <Skel w={240} h={26} r={8} style={{ marginBottom: 22 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {[0, 1].map((i) => (
+            <div key={i}><Skel w={110} h={14} style={{ marginBottom: 8 }} /><Skel w="100%" h={48} r={12} /></div>
+          ))}
+        </div>
+      </Card>
+      <div style={{ display: "flex", gap: 12 }}><Skel w="100%" h={52} r={999} /><Skel w="100%" h={52} r={999} /></div>
+    </Page>
+  );
+}
+
 /* ─────────────────────────── Court detail ─────────────────────────── */
 export function CourtSkeleton() {
   return (

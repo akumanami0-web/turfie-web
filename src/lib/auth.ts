@@ -65,15 +65,13 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
       city: u.city,
       level: u.level,
       role: u.role,
+      birthday: u.birthday,
+      gender: u.gender,
+      favSport: u.favSport,
     };
   } catch {
     return null;
   }
 });
 
-export function initialsFrom(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "TU";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+export { initialsFrom } from "./strings";

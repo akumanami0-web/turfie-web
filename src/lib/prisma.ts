@@ -9,11 +9,14 @@ import path from "node:path";
      seeded prisma/build.db to a writable /tmp path and use that (absolute, so
      it resolves the same regardless of cwd). Add a Vercel Postgres + redeploy
      to switch to durable storage automatically. */
-/** First postgres:// URL among the env vars Vercel/Neon/Supabase integrations set. */
+/** First postgres:// URL among the env vars Vercel/Neon/Supabase integrations set.
+    Prefer the pooled pgbouncer URL (POSTGRES_PRISMA_URL) — on serverless a
+    pooled connection is dramatically faster/safer than opening a direct one
+    on every cold start, which is the usual cause of "the site feels slow". */
 export function resolvePostgresUrl(): string | undefined {
   const candidates = [
-    process.env.DATABASE_URL,
     process.env.POSTGRES_PRISMA_URL,
+    process.env.DATABASE_URL,
     process.env.POSTGRES_URL,
     process.env.DATABASE_URL_UNPOOLED,
     process.env.POSTGRES_URL_NON_POOLING,
