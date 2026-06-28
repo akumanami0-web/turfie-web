@@ -287,6 +287,38 @@ export function ProfileSkeleton() {
   );
 }
 
+/* ─────────────────────────── Entry pass (ticket) ─────────────────────────── */
+export function TicketSkeleton() {
+  return (
+    <div className="t-skel-page" style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 24, paddingBottom: 64 }}>
+      <Container>
+        <div style={{ maxWidth: 460, margin: "0 auto" }}>
+          <Skel w={120} h={20} style={{ marginBottom: 14 }} />
+          <Card pad={0} style={{ overflow: "hidden" }}>
+            <Skel w="100%" h={120} r={0} />
+            <div style={{ padding: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i}><Skel w={60} h={11} style={{ marginBottom: 7 }} /><Skel w="75%" h={15} /></div>
+                ))}
+              </div>
+              <Skel w="100%" h={2} r={0} style={{ margin: "12px 0 16px" }} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <Skel w={234} h={234} r={16} />
+                <Skel w="60%" h={13} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+                <Skel w="100%" h={48} r={999} />
+                <Skel w="100%" h={48} r={999} />
+              </div>
+            </div>
+          </Card>
+        </div>
+      </Container>
+    </div>
+  );
+}
+
 /* ─────────────────────────── Court detail ─────────────────────────── */
 export function CourtSkeleton() {
   return (
