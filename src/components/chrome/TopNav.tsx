@@ -55,7 +55,7 @@ export function TopNav() {
         <div className="t-nav-desktop" style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {user ? (
             <Link href="/account" style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <Avatar initials={user.initials} size={38} ring />
+              <Avatar initials={user.initials} size={38} ring src={user.photoUrl || null} />
             </Link>
           ) : (
             <Button variant="ghost" size="sm" onClick={() => router.push("/login")}>Log in</Button>

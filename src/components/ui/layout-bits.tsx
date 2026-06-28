@@ -49,17 +49,20 @@ export function Stars({ rating = 5, size = 14, showNum = true }: { rating?: numb
   );
 }
 
-export function Avatar({ initials = "AS", size = 40, ring = false, style = {} }: { initials?: string; size?: number; ring?: boolean; style?: CSS }) {
+export function Avatar({ initials = "AS", size = 40, ring = false, src = null, style = {} }: { initials?: string; size?: number; ring?: boolean; src?: string | null; style?: CSS }) {
   const a = (AVATARS && AVATARS[initials]) || { c: "#c5edab", t: "#163300" };
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", background: a.c, color: a.t,
-      display: "grid", placeItems: "center", flexShrink: 0,
+      display: "grid", placeItems: "center", flexShrink: 0, overflow: "hidden",
       fontFamily: "var(--font-display)", fontWeight: 800, fontSize: size * 0.38,
       border: ring ? "2px solid var(--color-canvas)" : "none",
       boxShadow: ring ? "0 0 0 1px rgba(14,15,12,.08)" : "none", ...style,
     }}>
-      {initials}
+      {src
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={src} alt={initials} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : initials}
     </div>
   );
 }

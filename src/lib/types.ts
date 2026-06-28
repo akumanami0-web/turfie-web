@@ -77,4 +77,5 @@ export type SessionUser = {
   birthday: string | null;
   gender: string | null;
   favSport: string | null;
+  photoUrl: string | null;
 };

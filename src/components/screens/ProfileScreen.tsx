@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow, Avatar } from "@/components/ui/layout-bits";
@@ -41,7 +41,28 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
   const [birthday, setBirthday] = useState(user.birthday || "");
   const [gender, setGender] = useState(user.gender || "");
   const [favSport, setFavSport] = useState(user.favSport || "");
+  const [photo, setPhoto] = useState(user.photoUrl || "");
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast("Use a JPG, PNG or WebP image", "warning"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast("Image must be under 5 MB", "warning"); return; }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/profile/photo", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    setUploading(false);
+    if (!res.ok) { toast(data.error || "Couldn't upload photo", "error"); return; }
+    setPhoto(data.user?.photoUrl || "");
+    setUser(data.user);
+    toast("Photo updated");
+  }
 
   const steps = useMemo(() => profileSteps({ fullName: name, birthday, gender, favSport }), [name, birthday, gender, favSport]);
   const pct = Math.round((steps.done / steps.total) * 100);
@@ -95,13 +116,14 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
           {/* avatar */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 24 }}>
             <div style={{ position: "relative" }}>
-              <Avatar initials={initials} size={96} />
-              <button onClick={() => toast("Photo upload is coming soon")} aria-label="Add a profile photo"
-                style={{ position: "absolute", right: -2, bottom: -2, width: 34, height: 34, borderRadius: "50%", border: "2px solid var(--color-canvas)", background: "var(--color-primary)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+              <Avatar initials={initials} size={96} src={photo || null} style={{ opacity: uploading ? 0.5 : 1 }} />
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onPickPhoto} style={{ display: "none" }} />
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} aria-label="Change profile photo"
+                style={{ position: "absolute", right: -2, bottom: -2, width: 34, height: 34, borderRadius: "50%", border: "2px solid var(--color-canvas)", background: "var(--color-primary)", display: "grid", placeItems: "center", cursor: uploading ? "default" : "pointer" }}>
                 <Icon name="edit" size={15} color="var(--color-on-primary)" />
               </button>
             </div>
-            <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)" }}>Add a profile photo</span>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)" }}>{uploading ? "Uploading…" : photo ? "Change profile photo" : "Add a profile photo"}</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

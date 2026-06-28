@@ -25,6 +25,7 @@ model User {
   birthday     String?  // yyyy-mm-dd
   gender       String?  // male | female | other | prefer_not
   favSport     String?  // sport id
+  photoUrl     String?  // Supabase Storage public URL
   joinedAt     DateTime @default(now())
   bookings     Booking[]
   favourites   Favourite[]

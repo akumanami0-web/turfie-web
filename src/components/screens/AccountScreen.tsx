@@ -41,7 +41,7 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
         <div className="t-court-grid" style={{ display: "grid", gridTemplateColumns: "0.9fr 1.6fr", gap: 28, alignItems: "start" }}>
           <div style={{ position: "sticky", top: 92, display: "flex", flexDirection: "column", gap: 18 }}>
             <Card tone="white" style={{ padding: 26, textAlign: "center" }}>
-              <Avatar initials={user.initials} size={84} style={{ margin: "0 auto 14px" }} />
+              <Avatar initials={user.initials} size={84} src={user.photoUrl || null} style={{ margin: "0 auto 14px" }} />
               <Display size={26}>{user.fullName}</Display>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-mute)", marginTop: 4 }}>{user.email}</div>
               <Badge variant="positive" style={{ marginTop: 12 }}>{user.level} player</Badge>
@@ -60,7 +60,7 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                   <div style={{ position: "relative", width: 74, height: 74, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(var(--color-primary) ${profilePct}%, var(--border-subtle) ${profilePct}%)`, flexShrink: 0 }}>
                     <div style={{ background: "var(--color-canvas)", borderRadius: "50%", padding: 4 }}>
-                      <Avatar initials={user.initials} size={56} />
+                      <Avatar initials={user.initials} size={56} src={user.photoUrl || null} />
                     </div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
