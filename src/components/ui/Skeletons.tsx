@@ -141,17 +141,25 @@ function BookingRowSkel() {
   return (
     <div style={{ background: "var(--color-canvas)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
       <Skel w="100%" h={150} r={0} />
-      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 9, flex: 1 }}>
+        {/* title + 2-line location, status badge */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ flex: 1 }}><Skel w="70%" h={19} style={{ marginBottom: 7 }} /><Skel w="45%" h={13} /></div>
-          <Skel w={74} h={24} r={999} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Skel w="65%" h={19} style={{ marginBottom: 9 }} />
+            <Skel w="92%" h={13} style={{ marginBottom: 5 }} />
+            <Skel w="50%" h={13} />
+          </div>
+          <Skel w={80} h={26} r={999} />
         </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Skel w={90} h={14} /><Skel w={110} h={14} /><Skel w={70} h={14} />
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: "auto", paddingTop: 8 }}>
-          <Skel w={70} h={20} />
-          <div style={{ display: "flex", gap: 8 }}><Skel w={72} h={34} r={999} /><Skel w={104} h={34} r={999} /></div>
+        {/* meta: date + time, then court */}
+        <div style={{ display: "flex", gap: 14, marginTop: 4 }}><Skel w={96} h={14} /><Skel w={150} h={14} /></div>
+        <Skel w={80} h={14} />
+        {/* price + Cancel / Reschedule / View pass (wraps) */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: 12, flexWrap: "wrap", gap: 10 }}>
+          <Skel w={84} h={22} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Skel w={72} h={34} r={999} /><Skel w={118} h={34} r={999} /><Skel w={104} h={34} r={999} />
+          </div>
         </div>
       </div>
     </div>
