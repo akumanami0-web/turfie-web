@@ -35,26 +35,30 @@ async function ensureBucket(url: string, key: string) {
   throw new Error("bucket ensure failed: " + (await res.text()));
 }
 
-/** Public URL for a user's avatar (cache-busted). */
-export function avatarPublicUrl(userId: string, ext: string): string {
+/** Public URL for a stored object path. */
+export function publicUrlFor(path: string): string {
   const c = cfg();
   if (!c) return "";
-  return `${c.url}/storage/v1/object/public/${BUCKET}/${userId}.${ext}?v=${Date.now()}`;
+  return `${c.url}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
+/** A per-upload object path for this user (unique, so signing never collides
+    with an existing object). */
+export function avatarPath(userId: string, ext: string): string {
+  return `${userId}/${Date.now()}.${ext}`;
 }
 
 /** Mint a signed URL the browser can PUT the image straight to. */
-export async function signAvatarUpload(userId: string, ext: string): Promise<string> {
+export async function signUpload(path: string): Promise<string> {
   const c = cfg();
   if (!c) throw new Error("storage_not_configured");
   await ensureBucket(c.url, c.key);
 
-  const path = `${userId}.${ext}`;
   const res = await fetch(`${c.url}/storage/v1/object/upload/sign/${BUCKET}/${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${c.key}`, apikey: c.key, "Content-Type": "application/json" },
-    body: JSON.stringify({ upsert: true }),
   });
   if (!res.ok) throw new Error("sign failed: " + (await res.text()));
-  const { url } = await res.json(); // e.g. "/object/upload/sign/avatars/<id>.jpg?token=..."
+  const { url } = await res.json(); // e.g. "/object/upload/sign/avatars/<path>?token=..."
   return `${c.url}/storage/v1${url}`;
 }

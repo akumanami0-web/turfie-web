@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { signAvatarUpload, storageConfigured } from "@/lib/storage";
+import { signUpload, avatarPath, storageConfigured } from "@/lib/storage";
 
 const EXT = new Set(["jpg", "png", "webp"]);
 
@@ -15,9 +15,10 @@ export async function POST(req: Request) {
   const ext = String(body.ext || "").toLowerCase();
   if (!EXT.has(ext)) return NextResponse.json({ error: "Use a JPG, PNG or WebP image." }, { status: 400 });
 
+  const path = avatarPath(session.id, ext);
   try {
-    const uploadUrl = await signAvatarUpload(session.id, ext);
-    return NextResponse.json({ uploadUrl });
+    const uploadUrl = await signUpload(path);
+    return NextResponse.json({ uploadUrl, path });
   } catch {
     return NextResponse.json({ error: "Couldn't start the upload. Please try again." }, { status: 502 });
   }

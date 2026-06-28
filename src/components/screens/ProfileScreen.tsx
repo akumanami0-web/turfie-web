@@ -6,6 +6,7 @@ import { Container, Display, Eyebrow, Avatar } from "@/components/ui/layout-bits
 import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { ImageCropper } from "@/components/ui/ImageCropper";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
 import { profileSteps, PROFILE_TOTAL, GENDER_OPTIONS } from "@/lib/profile";
@@ -44,35 +45,38 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
   const [favSport, setFavSport] = useState(user.favSport || "");
   const [photo, setPhoto] = useState(user.photoUrl || "");
   const [uploading, setUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  // Step 1: choose a file → open the cropper (always crop before upload).
+  function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!file) return;
-    const extByType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-    const ext = extByType[file.type];
-    if (!ext) { toast("Use a JPG, PNG or WebP image", "warning"); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast("Use a JPG, PNG or WebP image", "warning"); return; }
     if (file.size > 50 * 1024 * 1024) { toast("Image must be under 50 MB", "warning"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(String(reader.result));
+    reader.readAsDataURL(file);
+  }
 
+  // Step 2: cropped → upload the square JPEG straight to Supabase, then save.
+  async function uploadCropped(blob: Blob) {
+    setCropSrc(null);
     setUploading(true);
     try {
-      // 1) get a signed URL, 2) upload the file straight to Supabase
-      //    (no serverless body limit), 3) save the URL on our side.
       const signRes = await fetch("/api/profile/photo/sign", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext: "jpg" }),
       });
       const sign = await signRes.json().catch(() => ({}));
       if (!signRes.ok) throw new Error(sign.error || "Couldn't start the upload");
 
-      const put = await fetch(sign.uploadUrl, {
-        method: "PUT", headers: { "Content-Type": file.type, "x-upsert": "true" }, body: file,
-      });
+      const put = await fetch(sign.uploadUrl, { method: "PUT", headers: { "Content-Type": "image/jpeg", "x-upsert": "true" }, body: blob });
       if (!put.ok) throw new Error("Upload failed");
 
       const saveRes = await fetch("/api/profile/photo", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ext }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: sign.path }),
       });
       const data = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok) throw new Error(data.error || "Couldn't save photo");
@@ -111,6 +115,7 @@ export function ProfileScreen({ user, welcome = false }: { user: SessionUser; we
 
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 24, paddingBottom: 80 }}>
+      {cropSrc && <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onDone={uploadCropped} />}
       <Container style={{ maxWidth: 720 }}>
         <button onClick={() => router.push("/account")} style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--color-body)", padding: "4px 0", marginBottom: 14 }}>
           <Icon name="arrowLeft" size={18} /> Account
