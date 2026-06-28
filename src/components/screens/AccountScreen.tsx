@@ -40,7 +40,11 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
       <Container>
         <div className="t-court-grid" style={{ display: "grid", gridTemplateColumns: "0.9fr 1.6fr", gap: 28, alignItems: "start" }}>
           <div style={{ position: "sticky", top: 92, display: "flex", flexDirection: "column", gap: 18 }}>
-            <Card tone="white" style={{ padding: 26, textAlign: "center" }}>
+            <Card tone="white" style={{ padding: 26, textAlign: "center", position: "relative" }}>
+              <button onClick={() => router.push("/account/edit")} aria-label="Edit profile"
+                style={{ position: "absolute", top: 16, right: 16, width: 38, height: 38, borderRadius: "50%", border: "1.5px solid var(--border-subtle)", background: "var(--color-canvas)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <Icon name="edit" size={17} color="var(--color-ink)" />
+              </button>
               <Avatar initials={user.initials} size={84} src={user.photoUrl || null} style={{ margin: "0 auto 14px" }} />
               <Display size={26}>{user.fullName}</Display>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-mute)", marginTop: 4 }}>{user.email}</div>
@@ -51,7 +55,6 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
                 ))}
               </div>
             </Card>
-            <Button variant="tertiary" fullWidth onClick={async () => { await logout(); toast("Logged out"); router.push("/"); }}>Log out</Button>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -100,6 +103,8 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
             </div>
           </div>
         </div>
+
+        <Button variant="tertiary" fullWidth onClick={async () => { await logout(); toast("Logged out"); router.push("/"); }} style={{ marginTop: 28 }}>Log out</Button>
       </Container>
     </div>
   );
