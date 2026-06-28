@@ -75,13 +75,13 @@ export function AuthScreen({ mode = "login", providers = { google: false, apple:
             <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
           </div>
           <div style={{ display: "flex", gap: 12 }}>
-            {(["Google", "Apple"] as const).map((p) => {
-              const key = p.toLowerCase() as "google" | "apple";
+            {(["Google"] as const).map((p) => {
+              const key = p.toLowerCase() as "google";
               const enabled = providers[key];
               return (
                 <Button key={p} variant="tertiary" fullWidth iconLeft={<Icon name={key} size={18} />}
                   onClick={() => { if (enabled) { window.location.href = `/api/auth/oauth/${key}`; } else { toast(`${p} sign-in needs OAuth keys (see .env.example)`, "warning"); } }}>
-                  {p}
+                  Continue with {p}
                 </Button>
               );
             })}
