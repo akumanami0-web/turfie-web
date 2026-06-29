@@ -54,7 +54,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     const { payload } = await jwtVerify(token, secretKey);
     const uid = payload.uid as string;
     const u = await prisma.user.findUnique({ where: { id: uid } });
-    if (!u) return null;
+    if (!u || u.suspended) return null; // suspended accounts are treated as logged out
     const staffEmails = (process.env.STAFF_EMAILS || "").toLowerCase().split(/[,\s]+/).filter(Boolean);
     const staff = u.role === "staff" || staffEmails.includes(u.email.toLowerCase());
     return {

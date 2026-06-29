@@ -26,7 +26,8 @@ export default async function Page() {
 
   const users = usersRaw.map((u) => ({
     id: u.id, name: u.fullName, email: u.email, phone: u.phone, role: u.role,
-    phoneVerified: u.phoneVerified, joined: fmtDate(u.joinedAt), bookings: u._count.bookings, initials: u.initials,
+    phoneVerified: u.phoneVerified, joined: fmtDate(u.joinedAt), bookings: u._count.bookings,
+    initials: u.initials, photoUrl: u.photoUrl, suspended: u.suspended,
   }));
   const bookings = bookingsRaw.map((b) => ({
     id: b.id, who: b.user?.fullName || b.contactName || "Guest", turf: turfName.get(b.turfId) || b.turfId,

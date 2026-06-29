@@ -18,6 +18,9 @@ export async function POST(req: Request) {
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
   }
+  if (user.suspended) {
+    return NextResponse.json({ error: "This account has been suspended. Contact Turfie support." }, { status: 403 });
+  }
   await setSession(user.id);
   return NextResponse.json({ user: await getSessionUser() });
 }
