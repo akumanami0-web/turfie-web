@@ -29,3 +29,29 @@ export function verifyTicket(token: string): string | null {
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   return id;
 }
+
+/* ── Battle entry tickets (per tournament + user) ── */
+const signBattle = (tid: string, uid: string) => b64url(crypto.createHmac("sha256", secret).update(`battle:${tid}:${uid}`).digest());
+
+export function signBattleTicket(tournamentId: string, userId: string): string {
+  return `B${b64url(Buffer.from(`${tournamentId}|${userId}`))}.${signBattle(tournamentId, userId)}`;
+}
+
+export function verifyBattleTicket(token: string): { tournamentId: string; userId: string } | null {
+  const t = String(token || "");
+  if (!t.startsWith("B")) return null;
+  const [idPart, sig] = t.slice(1).split(".");
+  if (!idPart || !sig) return null;
+  let decoded: string;
+  try {
+    decoded = Buffer.from(idPart.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+  const [tournamentId, userId] = decoded.split("|");
+  if (!tournamentId || !userId) return null;
+  const expected = signBattle(tournamentId, userId);
+  if (sig.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  return { tournamentId, userId };
+}

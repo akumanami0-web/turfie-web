@@ -417,7 +417,7 @@ function BookingGroup({ title, rows }: { title: string; rows: PlayerBooking[] })
   );
 }
 
-const EMPTY_FORM = { title: "", sport: "football", format: "5v5", area: "", turfId: "", address: "", dateKey: "", time: "", slots: "16", subs: "0", prizePool: "", blurb: "" };
+const EMPTY_FORM = { title: "", sport: "football", format: "5v5", area: "", turfId: "", address: "", dateKey: "", time: "", slots: "16", subs: "0", entryFee: "0", prizePool: "", blurb: "" };
 
 function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; setTours: React.Dispatch<React.SetStateAction<TournamentView[]>>; turfs: STurf[] }) {
   const toast = useToast();
@@ -436,7 +436,7 @@ function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; set
     if (!form.dateKey) { toast("Pick a date", "warning"); return; }
     setBusy(true);
     const dateLabel = fmtDateShort(new Date(`${form.dateKey}T00:00:00`));
-    const payload = { ...form, dateLabel, slots: Number(form.slots), subs: Number(form.subs), turfId: form.turfId || null, address: form.turfId ? null : form.address };
+    const payload = { ...form, dateLabel, slots: Number(form.slots), subs: Number(form.subs), entryFee: Number(form.entryFee), turfId: form.turfId || null, address: form.turfId ? null : form.address };
     const res = await fetch("/api/staff/tournaments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -492,7 +492,10 @@ function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; set
             <div><span style={labelCss}>Team slots</span><Input type="number" value={form.slots} onChange={(e) => set("slots", e.target.value)} /></div>
             <div><span style={labelCss}>Substitutes / team</span><Dropdown value={form.subs} onChange={(v) => set("subs", v)} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} sub${n === 1 ? "" : "s"}` }))} /></div>
           </div>
-          <div><span style={labelCss}>Prize pool</span><Input placeholder="₹10,000" value={form.prizePool} onChange={(e) => set("prizePool", e.target.value)} /></div>
+          <div className="t-form-2">
+            <div><span style={labelCss}>Entry fee / team (₹)</span><Input type="number" placeholder="0 = free" value={form.entryFee} onChange={(e) => set("entryFee", e.target.value)} /></div>
+            <div><span style={labelCss}>Prize pool</span><Input placeholder="₹10,000" value={form.prizePool} onChange={(e) => set("prizePool", e.target.value)} /></div>
+          </div>
           <div><span style={labelCss}>Description</span><Input placeholder="Knockout format, referees provided…" value={form.blurb} onChange={(e) => set("blurb", e.target.value)} /></div>
           <Button fullWidth disabled={busy} onClick={create} iconRight={<Icon name="arrowRight" size={17} />}>{busy ? "Creating…" : "Create battle"}</Button>
         </div>

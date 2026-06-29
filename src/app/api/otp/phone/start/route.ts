@@ -25,7 +25,13 @@ export async function POST(req: Request) {
   try {
     const { simulated } = await startPhoneOtp(phone, channel);
     return NextResponse.json({ ok: true, phone, simulated });
-  } catch {
-    return NextResponse.json({ error: "Couldn't send the code. Please try again." }, { status: 502 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    console.error("phone otp start failed:", msg);
+    // Surface a hint (e.g. Twilio trial only allows verified numbers) without leaking secrets.
+    const hint = /unverified|trial|not a valid|60200|21608/i.test(msg)
+      ? "Your SMS provider rejected this number (trial accounts can only message verified numbers)."
+      : "Couldn't send the code. Check the SMS provider setup and try again.";
+    return NextResponse.json({ error: hint }, { status: 502 });
   }
 }

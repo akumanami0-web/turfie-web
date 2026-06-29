@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Badge, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow, CourtArt } from "@/components/ui/layout-bits";
+import { ModalShell } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
 import { inr } from "@/lib/format";
@@ -14,24 +15,9 @@ function statusBadge(s: string) {
   return <Badge variant="positive">Upcoming</Badge>;
 }
 
-function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: boolean; onChange: (id: string, joined: boolean, entrants: number) => void }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
+function BattleCard({ t, loggedIn, onJoin, onLeave, onPass }: { t: TournamentView; loggedIn: boolean; onJoin: (t: TournamentView) => void; onLeave: (t: TournamentView) => void; onPass: (t: TournamentView) => void }) {
   const full = t.entrants >= t.slots && !t.joined;
   const pct = Math.min(100, Math.round((t.entrants / Math.max(1, t.slots)) * 100));
-
-  async function toggle() {
-    if (!loggedIn) { toast("Log in to join a battle", "warning"); router.push("/login"); return; }
-    setBusy(true);
-    const res = await fetch(`/api/tournaments/${t.id}/join`, { method: t.joined ? "DELETE" : "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    const data = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) { toast(data.error || "Couldn't update", "error"); return; }
-    const joined = !t.joined;
-    onChange(t.id, joined, t.entrants + (joined ? 1 : -1));
-    toast(joined ? "You're in — see you on the pitch!" : "Left the battle");
-  }
 
   return (
     <Card tone="white" padding={0} style={{ overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -43,6 +29,7 @@ function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: bo
             🏆 {t.prizePool}
           </div>
         )}
+        {t.joined && <div style={{ position: "absolute", bottom: 10, left: 12 }}><Badge variant="positive">✓ You&apos;re in</Badge></div>}
       </div>
       <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{t.title}</div>
@@ -54,9 +41,7 @@ function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: bo
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="calendar" size={15} color="var(--color-mute)" />{t.dateLabel}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="clock" size={15} color="var(--color-mute)" />{t.time}</span>
         </div>
-        {t.blurb && <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", margin: "2px 0 0", lineHeight: 1.45 }}>{t.blurb}</p>}
 
-        {/* slots */}
         <div style={{ marginTop: 6 }}>
           <div style={{ height: 7, borderRadius: 999, background: "var(--color-canvas-soft)", overflow: "hidden" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: "var(--color-primary)" }} />
@@ -69,11 +54,14 @@ function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: bo
           {t.status === "completed" ? (
             <Chip>Ended</Chip>
           ) : t.joined ? (
-            <Button size="sm" variant="tertiary" disabled={busy} onClick={toggle} iconLeft={<Icon name="check" size={15} />}>{busy ? "…" : "Joined"}</Button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button size="sm" variant="ghost" onClick={() => onLeave(t)}>Leave</Button>
+              <Button size="sm" variant="primary" onClick={() => onPass(t)} iconLeft={<Icon name="navigation" size={15} />}>View pass</Button>
+            </div>
           ) : full ? (
             <Chip>Full</Chip>
           ) : (
-            <Button size="sm" variant="primary" disabled={busy} onClick={toggle}>{busy ? "…" : "Join battle"}</Button>
+            <Button size="sm" variant="primary" onClick={() => onJoin(t)}>Join battle</Button>
           )}
         </div>
       </div>
@@ -81,14 +69,45 @@ function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: bo
   );
 }
 
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 0", fontFamily: "var(--font-body)", fontSize: 14.5 }}>
+      <span style={{ color: "var(--color-mute)" }}>{label}</span>
+      <span style={{ fontWeight: 700, color: "var(--color-ink)", textAlign: "right" }}>{value}</span>
+    </div>
+  );
+}
+
 export function BattlesScreen({ tournaments, loggedIn }: { tournaments: TournamentView[]; loggedIn: boolean }) {
+  const router = useRouter();
+  const toast = useToast();
   const [list, setList] = useState(tournaments);
   const [filter, setFilter] = useState("all");
-  const tabs: [string, string][] = [["all", "All"], ["live", "Live"], ["upcoming", "Upcoming"], ["completed", "Past"]];
-  const shown = list.filter((t) => filter === "all" || t.status === filter);
+  const [confirm, setConfirm] = useState<{ type: "join" | "leave"; t: TournamentView } | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function onChange(id: string, joined: boolean, entrants: number) {
-    setList((prev) => prev.map((t) => (t.id === id ? { ...t, joined, entrants } : t)));
+  const mineCount = list.filter((t) => t.joined && t.status !== "completed").length;
+  const tabs: [string, string][] = [["all", "All"], ["live", "Live"], ["upcoming", "Upcoming"], ["completed", "Past"]];
+  if (mineCount > 0) tabs.unshift(["mine", `Your battles (${mineCount})`]);
+
+  const shown = list.filter((t) => {
+    if (filter === "mine") return t.joined && t.status !== "completed";
+    return filter === "all" || t.status === filter;
+  });
+
+  async function doConfirm() {
+    if (!confirm) return;
+    if (!loggedIn) { toast("Log in to join a battle", "warning"); router.push("/login"); return; }
+    const { type, t } = confirm;
+    setBusy(true);
+    const res = await fetch(`/api/tournaments/${t.id}/join`, { method: type === "join" ? "POST" : "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    setConfirm(null);
+    if (!res.ok) { toast(data.error || "Couldn't update", "error"); return; }
+    const joined = type === "join";
+    setList((prev) => prev.map((x) => (x.id === t.id ? { ...x, joined, entrants: x.entrants + (joined ? 1 : -1) } : x)));
+    toast(joined ? "You're in — see you on the pitch!" : "Left the battle");
   }
 
   return (
@@ -109,15 +128,54 @@ export function BattlesScreen({ tournaments, loggedIn }: { tournaments: Tourname
             <div style={{ width: 70, height: 70, borderRadius: "50%", background: "var(--color-primary-pale)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
               <Icon name="users" size={32} color="var(--color-ink-deep)" />
             </div>
-            <Display size={22} style={{ marginBottom: 6 }}>No battles {filter !== "all" ? "here" : "yet"}</Display>
+            <Display size={22} style={{ marginBottom: 6 }}>{filter === "mine" ? "You haven't joined a battle yet" : `No battles ${filter !== "all" ? "here" : "yet"}`}</Display>
             <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--color-body)", margin: 0 }}>New tournaments drop regularly — check back soon.</p>
           </div>
         ) : (
           <div className="t-card-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-            {shown.map((t) => <BattleCard key={t.id} t={t} loggedIn={loggedIn} onChange={onChange} />)}
+            {shown.map((t) => <BattleCard key={t.id} t={t} loggedIn={loggedIn} onJoin={(b) => setConfirm({ type: "join", t: b })} onLeave={(b) => setConfirm({ type: "leave", t: b })} onPass={(b) => router.push(`/battle/${b.id}/pass`)} />)}
           </div>
         )}
       </Container>
+
+      {confirm && (
+        <ModalShell onClose={() => setConfirm(null)} maxWidth={460}>
+          {confirm.type === "join" ? (
+            <>
+              <Eyebrow style={{ marginBottom: 6 }}>Join battle</Eyebrow>
+              <Display size={24} style={{ marginBottom: 12 }}>{confirm.t.title}</Display>
+              <div style={{ background: "var(--color-canvas-soft)", borderRadius: "var(--radius-lg)", padding: "8px 16px", marginBottom: 16 }}>
+                <InfoRow label="Format" value={`${confirm.t.format}${confirm.t.subs > 0 ? ` · ${confirm.t.subs} subs` : ""}`} />
+                <InfoRow label="Venue" value={confirm.t.area || confirm.t.address || "TBA"} />
+                <InfoRow label="Date" value={confirm.t.dateLabel} />
+                <InfoRow label="Time" value={confirm.t.time} />
+                {confirm.t.prizePool && <InfoRow label="Prize pool" value={`🏆 ${confirm.t.prizePool}`} />}
+                <InfoRow label="Teams in" value={`${confirm.t.entrants} / ${confirm.t.slots}`} />
+                <InfoRow label="Entry" value={confirm.t.entryFee > 0 ? `${inr(confirm.t.entryFee)} (pay at venue)` : "Free"} />
+              </div>
+              {confirm.t.blurb && <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)", margin: "0 0 18px", lineHeight: 1.5 }}>{confirm.t.blurb}</p>}
+              <div style={{ display: "flex", gap: 10 }}>
+                <Button variant="tertiary" fullWidth onClick={() => setConfirm(null)}>Cancel</Button>
+                <Button fullWidth disabled={busy} onClick={doConfirm} iconRight={<Icon name="check" size={17} />}>{busy ? "Joining…" : "Confirm & join"}</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ width: 60, height: 60, borderRadius: "50%", background: "var(--color-warning-pale)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+                <Icon name="x" size={28} color="var(--color-warning-deep)" stroke={2.6} />
+              </div>
+              <Display size={22} style={{ textAlign: "center", marginBottom: 8 }}>Leave this battle?</Display>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--color-body)", textAlign: "center", margin: "0 0 20px" }}>
+                You&apos;ll give up your spot in <strong>{confirm.t.title}</strong>. You can re-join later if slots are still open.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Button variant="tertiary" fullWidth onClick={() => setConfirm(null)}>Stay in</Button>
+                <Button fullWidth disabled={busy} onClick={doConfirm} style={{ background: "var(--color-warning-deep)", color: "#fff" }}>{busy ? "Leaving…" : "Leave battle"}</Button>
+              </div>
+            </>
+          )}
+        </ModalShell>
+      )}
     </div>
   );
 }
