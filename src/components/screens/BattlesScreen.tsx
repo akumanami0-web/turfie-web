@@ -47,8 +47,8 @@ function BattleCard({ t, loggedIn, onChange }: { t: TournamentView; loggedIn: bo
       <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{t.title}</div>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-body)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="users" size={15} color="var(--color-mute)" />{t.format}</span>
-          {t.area && <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="pin" size={15} color="var(--color-mute)" />{t.area}</span>}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="users" size={15} color="var(--color-mute)" />{t.format}{t.subs > 0 ? ` · ${t.subs} subs` : ""}</span>
+          {(t.area || t.address) && <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="pin" size={15} color="var(--color-mute)" />{t.area || t.address}</span>}
         </div>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-body)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="calendar" size={15} color="var(--color-mute)" />{t.dateLabel}</span>

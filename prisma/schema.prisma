@@ -64,10 +64,12 @@ model Tournament {
   format    String   @default("5v5")
   turfId    String?
   area      String?
+  address   String?  // custom venue when no listed turf is used
   dateLabel String
   dateKey   String?
   time      String   @default("TBA")
   slots     Int      @default(16)
+  subs      Int      @default(0) // allowed substitutes per team (0-5)
   entryFee  Int      @default(0) // 0 = free to join
   prizePool String?
   status    String   @default("upcoming") // upcoming | live | completed

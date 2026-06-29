@@ -16,8 +16,8 @@ const navBtn: React.CSSProperties = { width: 32, height: 32, borderRadius: "50%"
 const linkBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, color: "var(--color-ink)" };
 
 /** Brand-styled date picker (replaces the OS-native one so it matches Turfie). */
-export function DatePicker({ value, onChange, placeholder = "DD / MM / YYYY", max, min }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; max?: string; min?: string;
+export function DatePicker({ value, onChange, placeholder = "DD / MM / YYYY", max, min, future = false }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; max?: string; min?: string; future?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"day" | "year">("day");
@@ -26,7 +26,7 @@ export function DatePicker({ value, onChange, placeholder = "DD / MM / YYYY", ma
   const sel = useMemo(() => parse(value), [value]);
   const maxD = max ? parse(max) : null;
   const minD = min ? parse(min) : null;
-  const [view, setView] = useState(() => (sel ? { y: sel.y, m: sel.m } : { y: today.getFullYear() - 18, m: today.getMonth() }));
+  const [view, setView] = useState(() => (sel ? { y: sel.y, m: sel.m } : { y: today.getFullYear() - (future ? 0 : 18), m: today.getMonth() }));
 
   useEffect(() => { if (open && sel) setView({ y: sel.y, m: sel.m }); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -49,7 +49,7 @@ export function DatePicker({ value, onChange, placeholder = "DD / MM / YYYY", ma
   const nextMonth = () => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }));
 
   const minYear = minD ? minD.y : 1925;
-  const maxYear = maxD ? maxD.y : today.getFullYear();
+  const maxYear = maxD ? maxD.y : today.getFullYear() + (future ? 2 : 0);
   const years: number[] = [];
   for (let y = maxYear; y >= minYear; y--) years.push(y);
 
