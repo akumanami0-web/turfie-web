@@ -1,36 +1,39 @@
 import { redirect } from "next/navigation";
-import { getSessionUser, initialsFrom } from "@/lib/auth";
-import { getTurfs } from "@/lib/turfs";
+import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AdminScreen } from "@/components/screens/AdminScreen";
+import { getTournaments } from "@/lib/tournaments";
+import { StaffScreen } from "@/components/screens/StaffScreen";
 
-export const metadata = { title: "Partner dashboard — Turfie" };
-
-const TONE: Record<string, "positive" | "neutral" | "negative"> = {
-  upcoming: "neutral", completed: "neutral", cancelled: "negative", confirmed: "positive",
-};
+export const metadata = { title: "Turfie Admin — Team" };
 
 export default async function Page() {
-  const user = await getSessionUser();
-  if (!user) redirect("/login");
+  const me = await getSessionUser();
+  if (!me) redirect("/login");
+  if (!me.staff) redirect("/account");
 
-  const turfs = await getTurfs();
-  const turfName = new Map(turfs.map((t) => [t.id, t.name]));
+  const [usersRaw, bookingsRaw, turfsRaw, tournaments, playerCount, bookingCount, revenueAgg] = await Promise.all([
+    prisma.user.findMany({ orderBy: { joinedAt: "desc" }, take: 200, include: { _count: { select: { bookings: true } } } }),
+    prisma.booking.findMany({ orderBy: { createdAt: "desc" }, take: 60, include: { user: true } }),
+    prisma.turf.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, area: true, ownerId: true } }),
+    getTournaments(),
+    prisma.user.count(),
+    prisma.booking.count(),
+    prisma.booking.aggregate({ _sum: { price: true }, where: { status: { in: ["upcoming", "completed"] } } }),
+  ]);
 
-  // real recent bookings across the network feed the "Latest bookings" list
-  const recent = await prisma.booking.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { user: true } });
-  const live = recent.map((b) => {
-    const who = b.user?.fullName || b.contactName || "Guest player";
-    return {
-      id: b.id,
-      who,
-      initials: b.user?.initials || initialsFrom(who),
-      turf: turfName.get(b.turfId) || b.turfId,
-      unit: b.unit, field: b.field, time: b.time || "—", dur: b.durationHrs,
-      price: b.price, status: b.status, tone: TONE[b.status] || "neutral",
-      when: "Recent", method: "UPI",
-    };
-  });
+  const turfName = new Map(turfsRaw.map((t) => [t.id, t.name]));
+  const fmtDate = (d: Date) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
-  return <AdminScreen turfs={turfs} live={live} />;
+  const users = usersRaw.map((u) => ({
+    id: u.id, name: u.fullName, email: u.email, phone: u.phone, role: u.role,
+    phoneVerified: u.phoneVerified, joined: fmtDate(u.joinedAt), bookings: u._count.bookings, initials: u.initials,
+  }));
+  const bookings = bookingsRaw.map((b) => ({
+    id: b.id, who: b.user?.fullName || b.contactName || "Guest", turf: turfName.get(b.turfId) || b.turfId,
+    dateLabel: b.dateLabel, time: b.time, price: b.price, status: b.status,
+  }));
+
+  const kpis = { players: playerCount, bookings: bookingCount, revenue: revenueAgg._sum.price || 0, tournaments: tournaments.length };
+
+  return <StaffScreen meName={me.name} kpis={kpis} users={users} bookings={bookings} turfs={turfsRaw} tournaments={tournaments} />;
 }

@@ -80,4 +80,6 @@ export type SessionUser = {
   favSport: string | null;
   photoUrl: string | null;
   phoneVerified: boolean;
+  staff: boolean;   // Turfie internal team
+  vendor: boolean;  // turf owner / operator
 };

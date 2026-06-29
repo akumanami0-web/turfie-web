@@ -57,8 +57,40 @@ model Favourite {
   @@index([userId])
 }
 
+model Tournament {
+  id        String   @id @default(cuid())
+  title     String
+  sport     String   @default("football")
+  format    String   @default("5v5")
+  turfId    String?
+  area      String?
+  dateLabel String
+  dateKey   String?
+  time      String   @default("TBA")
+  slots     Int      @default(16)
+  entryFee  Int      @default(0) // 0 = free to join
+  prizePool String?
+  status    String   @default("upcoming") // upcoming | live | completed
+  blurb     String?
+  createdAt DateTime @default(now())
+  entries   TournamentEntry[]
+}
+
+model TournamentEntry {
+  id           String     @id @default(cuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  userId       String
+  teamName     String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+  @@index([userId])
+}
+
 model Turf {
   id         String   @id
+  ownerId    String?  // vendor (User id) who manages this turf
   name       String
   kind       String
   sports     String   // comma-separated sport ids
@@ -85,6 +117,8 @@ model Turf {
   popular    Boolean  @default(false)
   reviewsList Review[]
   bookings   Booking[]
+
+  @@index([ownerId])
 }
 
 model Review {

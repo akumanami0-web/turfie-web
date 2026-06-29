@@ -31,9 +31,12 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
     ["refresh", "Refunds", refundCount ? `${refundCount} tracked` : "Track refunds", () => router.push("/account/refunds")],
     ["heart", "Saved turfs", `${fav.length} saved`, () => router.push("/account/saved")],
     ["edit", "Edit profile", "Name, birthday, more", () => router.push("/account/edit")],
+    ["users", "Battles", "Join tournaments", () => router.push("/battles")],
     ["compass", "Payment methods", "UPI · Card · Wallet", () => toast("Payments coming soon")],
     ["shield", "Privacy & security", "Password, data", () => toast("Settings coming soon")],
   ];
+  if (user.vendor) menu.unshift(["compass", "Turfie Onboard", "Your turf bookings", () => router.push("/onboard")] as [string, string, string, () => void]);
+  if (user.staff) menu.unshift(["shield", "Team admin", "Manage Turfie", () => router.push("/admin")] as [string, string, string, () => void]);
 
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 32, paddingBottom: 64 }}>

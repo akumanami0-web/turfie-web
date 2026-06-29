@@ -9,9 +9,9 @@ import { useSession } from "@/components/providers/session";
 
 const NAV_LINKS = [
   { href: "/browse", label: "Browse turfs" },
+  { href: "/battles", label: "Battles" },
   { href: "/how", label: "How it works" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/list", label: "List your turf" },
   { href: "/help", label: "Help" },
 ];
 
