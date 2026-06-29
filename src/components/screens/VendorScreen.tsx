@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Card, Badge, Chip } from "@/components/ui/primitives";
+import React, { Suspense, useState } from "react";
+import { Card, Badge, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
+import { ScanScreen } from "@/components/screens/ScanScreen";
 import { inr, inrK } from "@/lib/format";
 
 type VBooking = { id: string; who: string; turf: string; unit: string; field: string; dateLabel: string; time: string; price: number; status: string; checkedIn: boolean; isToday: boolean };
@@ -20,7 +20,7 @@ function statusBadge(b: VBooking) {
 }
 
 export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string; turfs: VTurf[]; bookings: VBooking[]; kpis: { today: number; upcoming: number; revenue: number; checkedIn: number } }) {
-  const router = useRouter();
+  const [view, setView] = useState<"bookings" | "scan">("bookings");
   const [filter, setFilter] = useState("today");
   const tabs: [string, string][] = [["today", "Today"], ["upcoming", "Upcoming"], ["all", "All"]];
   const shown = bookings.filter((b) => filter === "all" || (filter === "today" ? b.isToday && b.status !== "cancelled" : b.status === "upcoming"));
@@ -28,20 +28,25 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 28, paddingBottom: 64 }}>
       <Container wide>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-          <Eyebrow>Turfie Onboard</Eyebrow>
-          <Button size="sm" variant="primary" onClick={() => router.push("/scan")} iconLeft={<Icon name="navigation" size={15} />}>Scan entry pass</Button>
-        </div>
+        <Eyebrow style={{ marginBottom: 4 }}>Turfie Onboard</Eyebrow>
         <Display size={34} style={{ marginBottom: 4 }}>Vendor dashboard</Display>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--color-body)", margin: "0 0 22px" }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--color-body)", margin: "0 0 20px" }}>
           Welcome back, {meName}. {turfs.length ? `Managing ${turfs.length} turf${turfs.length > 1 ? "s" : ""}.` : "No turfs assigned yet."}
         </p>
 
-        {turfs.length === 0 ? (
+        {/* primary view tabs */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
+          <Chip selected={view === "bookings"} onClick={() => setView("bookings")}>Bookings</Chip>
+          <Chip selected={view === "scan"} onClick={() => setView("scan")}>Check-in scanner</Chip>
+        </div>
+
+        {view === "scan" ? (
+          <Suspense fallback={null}><ScanScreen embedded /></Suspense>
+        ) : turfs.length === 0 ? (
           <Card tone="white" style={{ padding: 32, textAlign: "center" }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--color-primary-pale)", display: "grid", placeItems: "center", margin: "0 auto 14px" }}><Icon name="compass" size={30} color="var(--color-ink-deep)" /></div>
             <Display size={22} style={{ marginBottom: 6 }}>No turfs assigned</Display>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--color-body)", margin: 0 }}>The Turfie team will assign your turf(s) to this account. Once linked, your bookings show up here.</p>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--color-body)", margin: 0 }}>The Turfie team will assign your turf(s) to this account. You can still use the Check-in scanner at the gate.</p>
           </Card>
         ) : (
           <>

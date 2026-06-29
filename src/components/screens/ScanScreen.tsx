@@ -22,7 +22,7 @@ function extractToken(text: string): string {
   }
 }
 
-export function ScanScreen() {
+export function ScanScreen({ embedded = false }: { embedded?: boolean }) {
   const sp = useSearchParams();
   const router = useRouter();
   const toast = useToast();
@@ -89,12 +89,8 @@ export function ScanScreen() {
 
   const reset = () => { setResult(null); setToken(null); setError(null); };
 
-  return (
-    <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 24, paddingBottom: 64 }}>
-      <Container style={{ maxWidth: 480 }}>
-        <Eyebrow style={{ marginBottom: 6 }}>Venue check-in</Eyebrow>
-        <Display size={30} style={{ marginBottom: 18 }}>Scan entry pass</Display>
-
+  const inner = (
+    <>
         {!isOperator && (
           <Card tone="green" style={{ padding: "14px 16px", marginBottom: 18, display: "flex", gap: 10, alignItems: "center" }}>
             <Icon name="shield" size={18} color="var(--color-ink-deep)" />
@@ -167,10 +163,21 @@ export function ScanScreen() {
             )}
 
             {isOperator && (
-              <Button variant="ghost" fullWidth style={{ marginTop: 10 }} onClick={() => { reset(); router.replace("/scan"); }}>Scan another</Button>
+              <Button variant="ghost" fullWidth style={{ marginTop: 10 }} onClick={() => { reset(); if (!embedded) router.replace("/scan"); }}>Scan another</Button>
             )}
           </Card>
         )}
+    </>
+  );
+
+  if (embedded) return <div style={{ maxWidth: 480 }}>{inner}</div>;
+
+  return (
+    <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 24, paddingBottom: 64 }}>
+      <Container style={{ maxWidth: 480 }}>
+        <Eyebrow style={{ marginBottom: 6 }}>Venue check-in</Eyebrow>
+        <Display size={30} style={{ marginBottom: 18 }}>Scan entry pass</Display>
+        {inner}
       </Container>
     </div>
   );
