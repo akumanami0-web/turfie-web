@@ -56,21 +56,31 @@ export function ScanScreen({ embedded = false }: { embedded?: boolean }) {
 
   const startCamera = useCallback(async () => {
     setError(null); setResult(null); setScanning(true);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanning(false);
+      setError("This browser can't open the camera. Try Chrome/Safari directly (not an in-app browser).");
+      return;
+    }
     try {
       const { BrowserQRCodeReader } = await import("@zxing/browser");
       const reader = new BrowserQRCodeReader();
-      const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current!, (res, _err, ctrl) => {
-        if (res) {
-          ctrl.stop();
-          controlsRef.current = null;
-          setScanning(false);
-          verify(extractToken(res.getText()));
-        }
-      });
+      const onResult = (res: { getText: () => string } | undefined, _err: unknown, ctrl: { stop: () => void }) => {
+        if (res) { ctrl.stop(); controlsRef.current = null; setScanning(false); verify(extractToken(res.getText())); }
+      };
+      // Prefer the back camera; this call triggers the permission prompt.
+      let controls;
+      try {
+        controls = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } } }, videoRef.current!, onResult);
+      } catch {
+        controls = await reader.decodeFromVideoDevice(undefined, videoRef.current!, onResult);
+      }
       controlsRef.current = controls;
-    } catch {
+    } catch (e) {
       setScanning(false);
-      setError("Couldn't access the camera. Allow camera permission or enter the code manually.");
+      const name = (e as { name?: string })?.name || "";
+      if (name === "NotAllowedError") setError("Camera permission was blocked. Allow it in your browser settings, then try again.");
+      else if (name === "NotFoundError") setError("No camera found on this device.");
+      else setError("Couldn't open the camera. Make sure you're in Chrome/Safari (not an in-app browser) and try again.");
     }
   }, [verify]);
 
@@ -104,7 +114,7 @@ export function ScanScreen({ embedded = false }: { embedded?: boolean }) {
         {isOperator && !result && (
           <Card tone="white" style={{ padding: 20, marginBottom: 18 }}>
             <div style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--color-ink)" }}>
-              <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <video ref={videoRef} playsInline muted autoPlay style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               {!scanning && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "rgba(255,255,255,.85)" }}>
                   <div style={{ textAlign: "center" }}>

@@ -130,7 +130,7 @@ export function Chip({
         background: selected ? "var(--color-ink)" : "var(--color-canvas)",
         color: selected ? "var(--color-canvas)" : "var(--color-ink)",
         border: selected ? "1px solid var(--color-ink)" : "1px solid var(--border-subtle)",
-        whiteSpace: "nowrap", ...style,
+        whiteSpace: "nowrap", flexShrink: 0, ...style,
       }}
       {...rest}
     >
