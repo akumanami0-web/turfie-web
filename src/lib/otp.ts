@@ -11,6 +11,9 @@ import { prisma } from "./prisma";
 //   are added (see twilioConfigured()/resendConfigured()).
 const TTL_MIN = 10;
 const MAX_ATTEMPTS = 5;
+// Fixed code used in demo mode (no SMS/email provider configured) so the flow
+// is testable on the live site until real keys are added.
+export const DEMO_CODE = "123456";
 
 const genCode = () => String(crypto.randomInt(0, 1000000)).padStart(6, "0");
 const hash = (c: string) => crypto.createHash("sha256").update(c).digest("hex");
@@ -54,9 +57,8 @@ export async function startPhoneOtp(phone: string, channel: "sms" | "whatsapp"):
     if (!res.ok) throw new Error("twilio start failed: " + (await res.text()));
     return { simulated: false };
   }
-  const code = process.env.NODE_ENV === "production" ? genCode() : "123456";
-  await store("phone", phone, "verify", code);
-  console.log(`[otp] simulated phone code for ${phone}: ${code}`);
+  await store("phone", phone, "verify", DEMO_CODE);
+  console.log(`[otp] demo phone code for ${phone}: ${DEMO_CODE}`);
   return { simulated: true };
 }
 
@@ -77,7 +79,7 @@ export async function checkPhoneOtp(phone: string, code: string): Promise<boolea
 
 /* ── Email (Resend) ── */
 export async function startEmailOtp(email: string, purpose: string): Promise<{ simulated: boolean }> {
-  const code = genCode();
+  const code = resendConfigured() ? genCode() : DEMO_CODE;
   await store("email", email, purpose, code);
   if (resendConfigured()) {
     const html = `<div style="font-family:system-ui,sans-serif;padding:24px"><h2 style="margin:0 0 8px">Verify your email</h2><p style="color:#555;margin:0 0 16px">Use this code to continue on Turfie. It expires in ${TTL_MIN} minutes.</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;background:#e2f6d5;color:#163300;border-radius:12px;padding:16px;text-align:center">${code}</div></div>`;
@@ -88,7 +90,7 @@ export async function startEmailOtp(email: string, purpose: string): Promise<{ s
     }).catch(() => {});
     return { simulated: false };
   }
-  console.log(`[otp] simulated email code for ${email}: ${code}`);
+  console.log(`[otp] demo email code for ${email}: ${code}`);
   return { simulated: true };
 }
 

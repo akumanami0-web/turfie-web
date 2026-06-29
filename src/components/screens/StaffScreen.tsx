@@ -58,6 +58,7 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [confirmDelUser, setConfirmDelUser] = useState<{ id: string; name: string } | null>(null);
   const [editTurfId, setEditTurfId] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
 
   async function suspendUser(u: SUser, suspended: boolean) {
     const res = await fetch(`/api/staff/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suspended }) });
@@ -75,7 +76,7 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
     toast("Account deleted");
   }
 
-  const tabs: [string, string][] = [["overview", "Overview"], ["players", "Players"], ["vendors", "Vendors & turfs"], ["bookings", "Bookings"], ["battles", "Battles"]];
+  const tabs: [string, string][] = [["overview", "Overview"], ["players", "Players"], ["vendors", "Vendors"], ["turfs", "Turfs"], ["bookings", "Bookings"], ["battles", "Battles"]];
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   async function setRole(u: SUser, role: string) {
@@ -131,14 +132,15 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
           <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-subtle)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>Latest bookings</div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-                <thead><tr>{["Player", "Turf", "When", "Amount", "Status"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+                <thead><tr>{["Booking ID", "Player", "Turf", "When", "Amount"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {bookings.slice(0, 10).map((b) => (
-                    <tr key={b.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                  {bookings.slice(0, 12).map((b) => (
+                    <tr key={b.id} onClick={() => setBookingId(b.id)} style={{ borderTop: "1px solid var(--border-subtle)", cursor: "pointer" }}>
+                      <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}</td>
                       <td style={cell}>{b.who}</td><td style={cell}>{b.turf}</td>
-                      <td style={cell}>{b.dateLabel} · {b.time}</td><td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{inr(b.price)}</td>
-                      <td style={cell}>{statusBadge(b.status)}</td>
+                      <td style={cell}>{b.dateLabel} · {b.time}</td>
+                      <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{inr(b.price)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -162,40 +164,41 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
           );
         })()}
 
-        {/* VENDORS & TURFS */}
+        {/* VENDORS */}
         {tab === "vendors" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-subtle)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>Vendors ({operators.length})</div>
-              {operators.length === 0
-                ? <div style={{ padding: 18, fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-mute)" }}>No vendor accounts yet. Open a player in the Players tab and tap “Make vendor”.</div>
-                : operators.map((u) => <UserRow key={u.id} u={u} onDetails={() => setDetailId(u.id)} />)}
-            </Card>
+          <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-subtle)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>Vendors ({operators.length})</div>
+            {operators.length === 0
+              ? <div style={{ padding: 18, fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-mute)" }}>No vendor accounts yet. Open a player in the Players tab and tap “Make vendor”.</div>
+              : operators.map((u) => <UserRow key={u.id} u={u} onDetails={() => setDetailId(u.id)} />)}
+          </Card>
+        )}
 
-            <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-subtle)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>Turf assignments &amp; details</div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {turfs.map((t) => {
-                  const owner = t.ownerId ? userById.get(t.ownerId) : null;
-                  return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderTop: "1px solid var(--border-subtle)", flexWrap: "wrap" }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{t.name}</div>
-                        <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>{t.area}{owner ? ` · ${owner.name}` : " · unassigned"}</div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 180 }}>
-                          <Dropdown value={t.ownerId || ""} onChange={(v) => assignTurf(t.id, v || null)} placeholder="Assign vendor…"
-                            options={[{ value: "", label: "Unassigned" }, ...operators.map((o) => ({ value: o.id, label: o.name }))]} />
-                        </div>
-                        <Button size="sm" variant="tertiary" onClick={() => setEditTurfId(t.id)} iconLeft={<Icon name="edit" size={14} />}>Edit</Button>
-                      </div>
+        {/* TURFS */}
+        {tab === "turfs" && (
+          <Card tone="white" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-subtle)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>Turfs ({turfs.length})</div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {turfs.map((t) => {
+                const owner = t.ownerId ? userById.get(t.ownerId) : null;
+                return (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderTop: "1px solid var(--border-subtle)", flexWrap: "wrap" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{t.name}</div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>{t.area}{owner ? ` · ${owner.name}` : " · unassigned"}</div>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 180 }}>
+                        <Dropdown value={t.ownerId || ""} onChange={(v) => assignTurf(t.id, v || null)} placeholder="Assign vendor…"
+                          options={[{ value: "", label: "Unassigned" }, ...operators.map((o) => ({ value: o.id, label: o.name }))]} />
+                      </div>
+                      <Button size="sm" variant="tertiary" onClick={() => setEditTurfId(t.id)} iconLeft={<Icon name="edit" size={14} />}>Edit</Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         )}
 
         {/* BOOKINGS */}
@@ -206,12 +209,12 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
                 <thead><tr>{["ID", "Player", "Turf", "When", "Amount", "Status", ""].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
                 <tbody>
                   {bookings.map((b) => (
-                    <tr key={b.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                    <tr key={b.id} onClick={() => setBookingId(b.id)} style={{ borderTop: "1px solid var(--border-subtle)", cursor: "pointer" }}>
                       <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}</td>
                       <td style={cell}>{b.who}</td><td style={cell}>{b.turf}</td>
                       <td style={cell}>{b.dateLabel} · {b.time}</td><td style={cell}>{inr(b.price)}</td>
                       <td style={cell}>{statusBadge(b.status)}</td>
-                      <td style={{ ...cell, textAlign: "right" }}>{b.status !== "cancelled" && <Button size="sm" variant="ghost" onClick={() => cancelBooking(b)}>Cancel</Button>}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{b.status !== "cancelled" && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelBooking(b); }}>Cancel</Button>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -252,8 +255,57 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
         {editTurfId && (
           <TurfEditModal turfId={editTurfId} onClose={() => setEditTurfId(null)} onSaved={(name, area) => setTurfs((p) => p.map((t) => (t.id === editTurfId ? { ...t, name, area } : t)))} />
         )}
+
+        {bookingId && <BookingModal bookingId={bookingId} onClose={() => setBookingId(null)} />}
       </Container>
     </div>
+  );
+}
+
+/* ── Booking details popup ── */
+type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean };
+
+function BookingModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
+  const [b, setB] = useState<BookingDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    let off = false;
+    fetch(`/api/staff/bookings/${bookingId}`).then((r) => r.json()).then((data) => { if (!off) { setB(data.booking || null); setLoading(false); } }).catch(() => setLoading(false));
+    return () => { off = true; };
+  }, [bookingId]);
+
+  return (
+    <ModalShell onClose={onClose} maxWidth={460}>
+      {loading || !b ? (
+        <div style={{ padding: "30px 0", textAlign: "center", fontFamily: "var(--font-body)", color: "var(--color-mute)" }}>Loading…</div>
+      ) : (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-mute)" }}>Booking</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22 }}>{b.id}</div>
+            </div>
+            {b.checkedIn ? <Badge variant="positive">Checked in</Badge> : statusBadge(b.status)}
+          </div>
+
+          {/* booked by */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--color-canvas-soft)", borderRadius: "var(--radius-lg)", marginBottom: 16 }}>
+            <Avatar initials={b.initials} size={44} src={b.photoUrl || null} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{b.name}</div>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)", overflow: "hidden", textOverflow: "ellipsis" }}>{b.email} · {b.phone}</div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[["Turf", b.turf], ["Area", b.area || "—"], ["Date", b.dateLabel], ["Time", b.time], [b.unit, `${b.unit} ${b.field}`], ["Duration", b.duration], ["Players", b.players], ["Amount", inr(b.price)]].map(([l, v]) => (
+              <div key={l}><div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--color-mute)" }}>{l}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{v}</div></div>
+            ))}
+          </div>
+        </div>
+      )}
+    </ModalShell>
   );
 }
 

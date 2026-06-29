@@ -103,7 +103,7 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
               <Input label="Verification code" placeholder="••••••" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
               {simulated && (
                 <div style={{ padding: "10px 12px", background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-warning-content)" }}>
-                  Test mode — email delivery isn&apos;t connected yet; check the server logs for your code.
+                  Demo mode — email isn&apos;t connected yet, so use code <strong>123456</strong>.
                 </div>
               )}
               <Button type="submit" fullWidth size="lg" disabled={busy || code.length < 4} iconRight={<Icon name="check" size={18} />}>{busy ? "Verifying…" : "Verify & create account"}</Button>

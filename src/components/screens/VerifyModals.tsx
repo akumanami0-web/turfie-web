@@ -130,7 +130,7 @@ export function ChangeEmailModal({ currentEmail, onClose, onVerified }: { curren
           <Input label="6-digit code" placeholder="••••••" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
           {simulated && (
             <div style={{ marginTop: 10, padding: "10px 12px", background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)", fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-warning-content)" }}>
-              Test mode — email delivery isn&apos;t connected yet; check the server logs for your code.
+              Demo mode — email isn&apos;t connected yet, so use code <strong>123456</strong>.
             </div>
           )}
           <Button fullWidth size="lg" style={{ marginTop: 18 }} disabled={busy || code.length < 4} onClick={verify} iconRight={<Icon name="check" size={18} />}>
