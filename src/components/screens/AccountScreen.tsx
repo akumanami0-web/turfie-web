@@ -8,6 +8,7 @@ import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
 import { useFavourites } from "@/lib/useFavourites";
 import { profileSteps } from "@/lib/profile";
+import { inr } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; initialFav: string[] }) {
@@ -57,6 +58,21 @@ export function AccountScreen({ bookings, initialFav }: { bookings: Booking[]; i
                   <div key={l}><div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24 }}>{n}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-mute)" }}>{l}</div></div>
                 ))}
               </div>
+            </Card>
+
+            <Card tone="white" style={{ padding: 22 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 46, height: 46, borderRadius: "var(--radius-lg)", background: "var(--color-primary-pale)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <Icon name="wallet" size={22} color="var(--color-ink-deep)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>Turfie wallet</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.1 }}>{inr(user.walletBalance || 0)}</div>
+                </div>
+              </div>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)", margin: "12px 0 0", lineHeight: 1.4 }}>
+                Use your balance at checkout. Eligible refunds can be credited here instantly.
+              </p>
             </Card>
           </div>
 

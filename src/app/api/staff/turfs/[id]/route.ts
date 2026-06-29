@@ -28,6 +28,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   for (const k of FLOAT) if (b[k] != null && b[k] !== "") data[k] = Number(b[k]);
   for (const k of BOOL) if (typeof b[k] === "boolean") data[k] = b[k];
 
+  // Sanity bounds so impossible values can't be saved.
+  const clamp = (k: string, lo: number, hi: number) => { if (typeof data[k] === "number") data[k] = Math.min(hi, Math.max(lo, data[k] as number)); };
+  clamp("openH", 0, 23);
+  clamp("closeH", 1, 24);
+  clamp("fieldCount", 1, 99);
+  clamp("spotsLeft", 0, 999);
+  clamp("price", 0, 1000000);
+  clamp("reviews", 0, 1000000);
+  clamp("rating", 0, 5);
+  if (typeof data.openH === "number" && typeof data.closeH === "number" && (data.closeH as number) <= (data.openH as number)) {
+    return NextResponse.json({ error: "Closing time must be after opening time." }, { status: 400 });
+  }
+
   const turf = await prisma.turf.update({ where: { id }, data });
   return NextResponse.json({ turf });
 }

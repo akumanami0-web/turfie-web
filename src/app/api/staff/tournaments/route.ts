@@ -19,6 +19,7 @@ export async function POST(req: Request) {
       address: b.address ? String(b.address) : null,
       dateLabel: String(b.dateLabel || "TBA"),
       dateKey: b.dateKey ? String(b.dateKey) : null,
+      startAt: b.startAt ? new Date(b.startAt) : null,
       time: String(b.time || "TBA"),
       slots: Math.max(2, Number(b.slots) || 16),
       subs: Math.min(5, Math.max(0, Number(b.subs) || 0)),

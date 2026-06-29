@@ -28,6 +28,10 @@ export async function POST(req: Request) {
   if (!turf) return NextResponse.json({ error: "Turf not found" }, { status: 404 });
   const total = turf.price * hours.length;
 
+  // Apply Turfie wallet (server-authoritative) → the gateway only charges the rest.
+  const walletApplied = body.useWallet && sessionUser ? Math.min(sessionUser.walletBalance, total) : 0;
+  const charge = total - walletApplied;
+
   // ensure this owner holds the slot (re-claim if the hold lapsed but the slot
   // is still free, so a lost hold never blocks a legitimate checkout)
   const owner = await getLockOwner();
@@ -40,6 +44,8 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  const order = await createOrder(total, `rcpt_${turfId}_${dateKey}_${hours[0]}`);
-  return NextResponse.json(order);
+  if (charge <= 0) return NextResponse.json({ fullyCovered: true, walletApplied });
+
+  const order = await createOrder(charge, `rcpt_${turfId}_${dateKey}_${hours[0]}`);
+  return NextResponse.json({ ...order, walletApplied });
 }

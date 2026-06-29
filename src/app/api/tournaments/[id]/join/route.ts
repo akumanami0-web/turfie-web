@@ -12,6 +12,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!t) return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
   if (t.status === "completed") return NextResponse.json({ error: "This tournament has ended." }, { status: 409 });
 
+  // Joining closes 24h before kickoff.
+  if (t.startAt) {
+    const cutoff = t.startAt.getTime() - 24 * 60 * 60 * 1000;
+    if (Date.now() >= cutoff) {
+      return NextResponse.json({ error: "Joining is closed — battles lock 24 hours before kickoff." }, { status: 409 });
+    }
+  }
+
   const existing = await prisma.tournamentEntry.findUnique({ where: { tournamentId_userId: { tournamentId: id, userId: user.id } } });
   if (existing) return NextResponse.json({ ok: true, joined: true });
 

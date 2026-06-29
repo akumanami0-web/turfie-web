@@ -7,6 +7,7 @@ import { rowToBooking, getUserBookings } from "@/lib/bookings";
 import { verifyPayment } from "@/lib/payments";
 import { confirm, ensureHold, SlotConflictError } from "@/lib/locks";
 import { twilioConfigured } from "@/lib/otp";
+import { adjustWallet } from "@/lib/wallet-balance";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const {
     turfId, field = "A", dateKey, dateLabel, startHour, hours = [], duration, durationHrs = 1,
-    slotLabel, players, split = false, contact = {},
+    slotLabel, players, split = false, contact = {}, useWallet = false,
     payment = {},
   } = body;
 
@@ -39,6 +40,9 @@ export async function POST(req: Request) {
   // Price is computed server-side from the real rate × hours — never trusted
   // from the client, so a tampered request can't underpay.
   const total = turf.price * hours.length;
+  // Wallet covers part (or all) of it; the gateway only paid the remainder.
+  const walletApplied = useWallet && sessionUser ? Math.min(sessionUser.walletBalance, total) : 0;
+  const charge = total - walletApplied;
 
   const emailOk = /\S+@\S+\.\S+/.test(String(contact.email || "").trim());
   const phoneOk = String(contact.phone || "").replace(/\D/g, "").length >= 10;
@@ -46,8 +50,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A phone number or email is required." }, { status: 400 });
   }
 
-  // payment must verify (simulated orders always pass)
-  if (!verifyPayment(String(payment.orderId || ""), String(payment.paymentId || ""), String(payment.signature || ""))) {
+  // payment must verify for the charged part (skipped when wallet covers it all)
+  if (charge > 0 && !verifyPayment(String(payment.orderId || ""), String(payment.paymentId || ""), String(payment.signature || ""))) {
     return NextResponse.json({ error: "Payment verification failed." }, { status: 402 });
   }
 
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
       players: `1/${Number(players) || 10}`,
       status: "upcoming",
       price: total,
+      walletUsed: walletApplied,
       sport: turf.primary,
       split: !!split,
       kickoffAt,
@@ -92,8 +97,15 @@ export async function POST(req: Request) {
     },
   });
 
+  // Deduct the wallet portion only now that the booking is confirmed.
+  let newUser = user;
+  if (walletApplied > 0 && user) {
+    const newBalance = await adjustWallet(user.id, -walletApplied, "booking", `Booking ${id}`);
+    newUser = { ...user, walletBalance: newBalance };
+  }
+
   // consume the hold
   await confirm(turfId, field, dateKey, hours.map(Number), owner);
 
-  return NextResponse.json({ booking: rowToBooking(created) });
+  return NextResponse.json({ booking: rowToBooking(created), user: newUser });
 }

@@ -3,16 +3,16 @@ import { prisma } from "./prisma";
 
 export type TournamentView = {
   id: string; title: string; sport: string; format: string; turfId: string | null; area: string | null; address: string | null;
-  dateLabel: string; dateKey: string | null; time: string; slots: number; subs: number; entryFee: number;
+  dateLabel: string; dateKey: string | null; startAt: number | null; time: string; slots: number; subs: number; entryFee: number;
   prizePool: string | null; status: string; blurb: string | null; entrants: number; joined: boolean;
 };
 
 const RANK: Record<string, number> = { live: 0, upcoming: 1, completed: 2 };
 
-function toView(r: { id: string; title: string; sport: string; format: string; turfId: string | null; area: string | null; address: string | null; dateLabel: string; dateKey: string | null; time: string; slots: number; subs: number; entryFee: number; prizePool: string | null; status: string; blurb: string | null; _count: { entries: number } }, joined: boolean): TournamentView {
+function toView(r: { id: string; title: string; sport: string; format: string; turfId: string | null; area: string | null; address: string | null; dateLabel: string; dateKey: string | null; startAt: Date | null; time: string; slots: number; subs: number; entryFee: number; prizePool: string | null; status: string; blurb: string | null; _count: { entries: number } }, joined: boolean): TournamentView {
   return {
     id: r.id, title: r.title, sport: r.sport, format: r.format, turfId: r.turfId, area: r.area, address: r.address,
-    dateLabel: r.dateLabel, dateKey: r.dateKey, time: r.time, slots: r.slots, subs: r.subs, entryFee: r.entryFee,
+    dateLabel: r.dateLabel, dateKey: r.dateKey, startAt: r.startAt ? r.startAt.getTime() : null, time: r.time, slots: r.slots, subs: r.subs, entryFee: r.entryFee,
     prizePool: r.prizePool, status: r.status, blurb: r.blurb, entrants: r._count.entries, joined,
   };
 }

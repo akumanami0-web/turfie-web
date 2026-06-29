@@ -29,9 +29,21 @@ model User {
   googleId     String?  @unique // stable Google account id (sub) — survives email changes
   phoneVerified Boolean @default(false)
   suspended    Boolean  @default(false)
+  walletBalance Int     @default(0) // Turfie wallet balance in ₹
   joinedAt     DateTime @default(now())
   bookings     Booking[]
   favourites   Favourite[]
+}
+
+model WalletTxn {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int      // signed: + credit, - debit (₹)
+  kind      String   // refund | admin_credit | admin_debit | booking
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Otp {
@@ -68,6 +80,7 @@ model Tournament {
   address   String?  // custom venue when no listed turf is used
   dateLabel String
   dateKey   String?
+  startAt   DateTime? // exact kickoff — used for the 24h join cutoff + countdown
   time      String   @default("TBA")
   slots     Int      @default(16)
   subs      Int      @default(0) // allowed substitutes per team (0-5)
@@ -164,6 +177,7 @@ model Booking {
   refundAmount Int?
   cancelledAt  DateTime?
   checkedInAt  DateTime? // set when a vendor scans the entry QR
+  walletUsed   Int       @default(0) // ₹ paid from Turfie wallet
   createdAt    DateTime  @default(now())
 
   @@index([userId])

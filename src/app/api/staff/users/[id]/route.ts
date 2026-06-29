@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { getTurfs } from "@/lib/turfs";
 import { slotRange } from "@/lib/format";
+import { adjustWallet } from "@/lib/wallet-balance";
 
 /** Staff: full details for one player (profile + booking history). */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     user: {
       id: u.id, name: u.fullName, email: u.email, phone: u.phone, phoneVerified: u.phoneVerified,
       role: u.role, city: u.city, level: u.level, gender: u.gender, birthday: u.birthday,
-      initials: u.initials, photoUrl: u.photoUrl, suspended: u.suspended,
+      initials: u.initials, photoUrl: u.photoUrl, suspended: u.suspended, walletBalance: u.walletBalance,
       joined: new Date(u.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
     },
     bookings,
@@ -54,7 +55,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (b.unassignTurfId) {
     await prisma.turf.updateMany({ where: { id: String(b.unassignTurfId), ownerId: id }, data: { ownerId: null } });
   }
-  return NextResponse.json({ ok: true });
+  let walletBalance: number | undefined;
+  if (typeof b.walletDelta === "number" && b.walletDelta !== 0) {
+    walletBalance = await adjustWallet(id, Math.round(b.walletDelta), b.walletDelta > 0 ? "admin_credit" : "admin_debit", b.walletNote ? String(b.walletNote) : "Staff adjustment");
+  }
+  return NextResponse.json({ ok: true, walletBalance });
 }
 
 /** Staff: permanently delete a user. Bookings are kept (anonymised) for records. */

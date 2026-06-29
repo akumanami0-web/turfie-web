@@ -7,7 +7,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
-import { inr, inrK, fmtDateShort } from "@/lib/format";
+import { inr, inrK, fmtDateShort, fmtHour } from "@/lib/format";
 import { SPORTS } from "@/lib/content";
 import type { TournamentView } from "@/lib/tournaments";
 
@@ -310,7 +310,7 @@ function BookingModal({ bookingId, onClose }: { bookingId: string; onClose: () =
 }
 
 /* ── Player details popup ── */
-type PlayerDetail = { id: string; name: string; email: string; phone: string | null; phoneVerified: boolean; role: string; city: string; level: string; gender: string | null; birthday: string | null; initials: string; photoUrl: string | null; suspended: boolean; joined: string };
+type PlayerDetail = { id: string; name: string; email: string; phone: string | null; phoneVerified: boolean; role: string; city: string; level: string; gender: string | null; birthday: string | null; initials: string; photoUrl: string | null; suspended: boolean; walletBalance: number; joined: string };
 type PlayerBooking = { id: string; turf: string; when: string; status: string; price: number };
 
 function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { userId: string; onClose: () => void; onRole: (id: string, role: string) => void; onSuspend: (id: string, suspended: boolean) => void; onRequestDelete: (u: { id: string; name: string }) => void }) {
@@ -319,6 +319,7 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
   const [bookings, setBookings] = useState<PlayerBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [walletAmt, setWalletAmt] = useState("");
 
   React.useEffect(() => {
     let off = false;
@@ -350,6 +351,20 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
     setD({ ...d, suspended: next });
     onSuspend(d.id, next);
     toast(next ? "Account suspended" : "Account reinstated");
+  }
+
+  async function adjustWallet(sign: 1 | -1) {
+    if (!d) return;
+    const amt = Math.round(Number(walletAmt));
+    if (!amt || amt <= 0) { toast("Enter an amount", "warning"); return; }
+    setBusy(true);
+    const res = await fetch(`/api/staff/users/${d.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ walletDelta: sign * amt }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { toast("Couldn't update wallet", "error"); return; }
+    setD({ ...d, walletBalance: typeof data.walletBalance === "number" ? data.walletBalance : d.walletBalance });
+    setWalletAmt("");
+    toast(sign > 0 ? `Added ${inr(amt)} to wallet` : `Deducted ${inr(amt)} from wallet`);
   }
 
   const upcoming = bookings.filter((b) => b.status === "upcoming");
@@ -385,7 +400,20 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
             {d.role !== "staff" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRequestDelete({ id: d.id, name: d.name })} style={{ color: "var(--color-negative)" }}>Delete</Button>}
           </div>
 
-          <div style={{ maxHeight: 280, overflowY: "auto" }}>
+          {/* Turfie wallet */}
+          <div style={{ background: "var(--color-canvas-soft)", borderRadius: "var(--radius-lg)", padding: "14px 16px", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14 }}>Turfie wallet</span>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18 }}>{inr(d.walletBalance)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}><Input type="number" placeholder="Amount" value={walletAmt} onChange={(e) => setWalletAmt(e.target.value)} /></div>
+              <Button size="sm" variant="tertiary" disabled={busy} onClick={() => adjustWallet(1)}>Add</Button>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => adjustWallet(-1)}>Deduct</Button>
+            </div>
+          </div>
+
+          <div style={{ maxHeight: 240, overflowY: "auto" }}>
             <BookingGroup title={`Upcoming (${upcoming.length})`} rows={upcoming} />
             <BookingGroup title={`History (${history.length})`} rows={history} />
           </div>
@@ -417,7 +445,7 @@ function BookingGroup({ title, rows }: { title: string; rows: PlayerBooking[] })
   );
 }
 
-const EMPTY_FORM = { title: "", sport: "football", format: "5v5", area: "", turfId: "", address: "", dateKey: "", time: "", slots: "16", subs: "0", entryFee: "0", prizePool: "", blurb: "" };
+const EMPTY_FORM = { title: "", sport: "football", format: "5v5", area: "", turfId: "", address: "", dateKey: "", startHour: "", endTime: "", slots: "16", subs: "0", entryFee: "0", prizePool: "", blurb: "" };
 
 function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; setTours: React.Dispatch<React.SetStateAction<TournamentView[]>>; turfs: STurf[] }) {
   const toast = useToast();
@@ -434,15 +462,19 @@ function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; set
   async function create() {
     if (!form.title.trim()) { toast("Add a title", "warning"); return; }
     if (!form.dateKey) { toast("Pick a date", "warning"); return; }
+    if (form.startHour === "") { toast("Pick a start time", "warning"); return; }
     setBusy(true);
     const dateLabel = fmtDateShort(new Date(`${form.dateKey}T00:00:00`));
-    const payload = { ...form, dateLabel, slots: Number(form.slots), subs: Number(form.subs), entryFee: Number(form.entryFee), turfId: form.turfId || null, address: form.turfId ? null : form.address };
+    const hh = Number(form.startHour);
+    const startAt = new Date(`${form.dateKey}T${String(hh).padStart(2, "0")}:00:00`).toISOString();
+    const timeLabel = form.endTime ? `${fmtHour(hh)} – ${form.endTime}` : fmtHour(hh);
+    const payload = { ...form, dateLabel, time: timeLabel, startAt, slots: Number(form.slots), subs: Number(form.subs), entryFee: Number(form.entryFee), turfId: form.turfId || null, address: form.turfId ? null : form.address };
     const res = await fetch("/api/staff/tournaments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) { toast(data.error || "Couldn't create", "error"); return; }
     const t = data.tournament;
-    setTours((p) => [{ id: t.id, title: t.title, sport: t.sport, format: t.format, turfId: t.turfId, area: t.area, address: t.address, dateLabel: t.dateLabel, dateKey: t.dateKey, time: t.time, slots: t.slots, subs: t.subs, entryFee: t.entryFee, prizePool: t.prizePool, status: t.status, blurb: t.blurb, entrants: 0, joined: false }, ...p]);
+    setTours((p) => [{ id: t.id, title: t.title, sport: t.sport, format: t.format, turfId: t.turfId, area: t.area, address: t.address, dateLabel: t.dateLabel, dateKey: t.dateKey, startAt: t.startAt ? new Date(t.startAt).getTime() : null, time: t.time, slots: t.slots, subs: t.subs, entryFee: t.entryFee, prizePool: t.prizePool, status: t.status, blurb: t.blurb, entrants: 0, joined: false }, ...p]);
     setForm(EMPTY_FORM);
     toast("Battle created");
   }
@@ -486,14 +518,15 @@ function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; set
 
           <div className="t-form-2">
             <div><span style={labelCss}>Date</span><DatePicker value={form.dateKey} onChange={(v) => set("dateKey", v)} min={today} future /></div>
-            <div><span style={labelCss}>Time</span><Input placeholder="4 PM – 8 PM" value={form.time} onChange={(e) => set("time", e.target.value)} /></div>
+            <div><span style={labelCss}>Start time</span><Dropdown value={form.startHour} onChange={(v) => set("startHour", v)} placeholder="Select" options={Array.from({ length: 18 }, (_, i) => i + 6).map((h) => ({ value: String(h), label: fmtHour(h) }))} /></div>
           </div>
+          <div><span style={labelCss}>Ends (optional label)</span><Input placeholder="8:00 PM" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} /></div>
           <div className="t-form-2">
-            <div><span style={labelCss}>Team slots</span><Input type="number" value={form.slots} onChange={(e) => set("slots", e.target.value)} /></div>
+            <div><span style={labelCss}>Team slots</span><Input type="number" min={2} value={form.slots} onChange={(e) => set("slots", e.target.value)} /></div>
             <div><span style={labelCss}>Substitutes / team</span><Dropdown value={form.subs} onChange={(v) => set("subs", v)} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} sub${n === 1 ? "" : "s"}` }))} /></div>
           </div>
           <div className="t-form-2">
-            <div><span style={labelCss}>Entry fee / team (₹)</span><Input type="number" placeholder="0 = free" value={form.entryFee} onChange={(e) => set("entryFee", e.target.value)} /></div>
+            <div><span style={labelCss}>Entry fee / team (₹)</span><Input type="number" min={0} placeholder="0 = free" value={form.entryFee} onChange={(e) => set("entryFee", e.target.value)} /></div>
             <div><span style={labelCss}>Prize pool</span><Input placeholder="₹10,000" value={form.prizePool} onChange={(e) => set("prizePool", e.target.value)} /></div>
           </div>
           <div><span style={labelCss}>Description</span><Input placeholder="Knockout format, referees provided…" value={form.blurb} onChange={(e) => set("blurb", e.target.value)} /></div>
@@ -542,12 +575,12 @@ function BattlesAdmin({ tours, setTours, turfs }: { tours: TournamentView[]; set
 }
 
 /* ── Turf editor (staff) ── */
-const TEXT_FIELDS: [string, string, boolean][] = [
+const TEXT_FIELDS: [string, string, boolean, number?, number?][] = [
   ["name", "Turf name", false], ["kind", "Type (e.g. 5-a-side)", false], ["area", "Area", false],
-  ["pin", "PIN code", false], ["distLabel", "Distance label", false], ["price", "Price / hr (₹)", true],
-  ["surface", "Surface", false], ["unit", "Court/Pitch label", false], ["fieldCount", "No. of courts", true],
-  ["openLabel", "Open hours label", false], ["openH", "Opens (0–23)", true], ["closeH", "Closes (0–24)", true],
-  ["spotsLeft", "Spots left", true], ["sports", "Sports (comma-sep)", false], ["formats", "Formats (comma-sep)", false],
+  ["pin", "PIN code", false], ["distLabel", "Distance label", false], ["price", "Price / hr (₹)", true, 0],
+  ["surface", "Surface", false], ["unit", "Court/Pitch label", false], ["fieldCount", "No. of courts", true, 1, 99],
+  ["openLabel", "Open hours label", false], ["openH", "Opens (0–23)", true, 0, 23], ["closeH", "Closes (1–24)", true, 1, 24],
+  ["spotsLeft", "Spots left", true, 0], ["sports", "Sports (comma-sep)", false], ["formats", "Formats (comma-sep)", false],
   ["amenities", "Amenities (comma-sep)", false],
 ];
 
@@ -577,8 +610,9 @@ function TurfEditModal({ turfId, onClose, onSaved }: { turfId: string; onClose: 
     if (!form.name.trim()) { toast("Name is required", "warning"); return; }
     setBusy(true);
     const res = await fetch(`/api/staff/turfs/${turfId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, popular }) });
+    const data = await res.json().catch(() => ({}));
     setBusy(false);
-    if (!res.ok) { toast("Couldn't save turf", "error"); return; }
+    if (!res.ok) { toast(data.error || "Couldn't save turf", "error"); return; }
     onSaved(form.name, form.area);
     toast("Turf updated");
     onClose();
@@ -590,12 +624,12 @@ function TurfEditModal({ turfId, onClose, onSaved }: { turfId: string; onClose: 
       {!form ? (
         <div style={{ padding: "30px 0", textAlign: "center", fontFamily: "var(--font-body)", color: "var(--color-mute)" }}>Loading…</div>
       ) : (
-        <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
-          <div className="t-form-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {TEXT_FIELDS.map(([k, label, num]) => (
-              <div key={k}>
+        <div style={{ maxHeight: "60vh", overflowY: "auto", overflowX: "hidden", paddingRight: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 14 }}>
+            {TEXT_FIELDS.map(([k, label, num, min, max]) => (
+              <div key={k} style={{ minWidth: 0 }}>
                 <span style={labelCss}>{label}</span>
-                <Input type={num ? "number" : "text"} value={form[k]} onChange={(e) => set(k, e.target.value)} />
+                <Input type={num ? "number" : "text"} min={num ? min : undefined} max={num ? max : undefined} value={form[k]} onChange={(e) => set(k, e.target.value)} />
               </div>
             ))}
           </div>

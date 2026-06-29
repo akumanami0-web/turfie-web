@@ -52,6 +52,7 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
   const [showPhone, setShowPhone] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [method, setMethod] = useState("upi");
+  const [useWallet, setUseWallet] = useState(false);
   const [split, setSplit] = useState(false);
   const [players, setPlayers] = useState(10);
   const [contact, setContact] = useState({ name: "", phone: "", email: "" });
@@ -92,6 +93,9 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
   const emailOk = /\S+@\S+\.\S+/.test(contact.email.trim());
   const phoneOk = contact.phone.replace(/\D/g, "").length >= 10;
   const contactOk = emailOk || phoneOk;
+  const walletBal = user?.walletBalance || 0;
+  const walletApplied = useWallet ? Math.min(walletBal, draft.total) : 0;
+  const payable = draft.total - walletApplied;
 
   async function finalize(payment: Record<string, unknown>) {
     const res = await fetch("/api/bookings", {
@@ -100,8 +104,8 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
       body: JSON.stringify({
         turfId: draft!.turfId, field: draft!.field, dateKey: draft!.dateKey, dateLabel: draft!.dateLabel,
         startHour: draft!.startHour, hours: draft!.hours, slotLabel: draft!.slotLabel,
-        duration: `${draft!.duration} hr`, durationHrs: draft!.duration, total: draft!.total,
-        players, split, contact, payment,
+        duration: `${draft!.duration} hr`, durationHrs: draft!.duration,
+        players, split, contact, payment, useWallet,
       }),
     });
     if (!res.ok) {
@@ -110,7 +114,8 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
       setProcessing(false);
       return;
     }
-    const { booking } = await res.json();
+    const { booking, user: updatedUser } = await res.json();
+    if (updatedUser) setUser(updatedUser); // reflect new wallet balance
     try { sessionStorage.setItem("turfie.lastBooking", JSON.stringify(booking)); sessionStorage.removeItem("turfie.draft"); } catch {}
     router.push("/booking/confirmed");
   }
@@ -123,7 +128,7 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
     const orderRes = await fetch("/api/checkout/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ turfId: draft.turfId, field: draft.field, dateKey: draft.dateKey, hours: draft.hours, total: draft.total }),
+      body: JSON.stringify({ turfId: draft.turfId, field: draft.field, dateKey: draft.dateKey, hours: draft.hours, useWallet }),
     });
     if (!orderRes.ok) {
       const e = await orderRes.json().catch(() => ({}));
@@ -138,6 +143,11 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
     }
     const order = await orderRes.json();
 
+    if (order.fullyCovered) {
+      // wallet covers the whole amount — no payment gateway needed
+      setTimeout(() => finalize({ orderId: "wallet", paymentId: "wallet", signature: "wallet", simulated: true }), 600);
+      return;
+    }
     if (order.simulated || !order.keyId) {
       // simulated PSP — confirm immediately
       setTimeout(() => finalize({ orderId: order.orderId, paymentId: "sim_pay", signature: "sim", simulated: true }), 1200);
@@ -222,20 +232,44 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
               )}
             </Card>
 
+            {/* Turfie wallet */}
+            {user && walletBal > 0 && (
+              <Card tone="white" style={{ padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: "var(--radius-md)", background: "var(--color-primary-pale)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="wallet" size={20} color="var(--color-ink-deep)" /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>Use Turfie wallet</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>Balance {inr(walletBal)}{useWallet ? ` · applying ${inr(walletApplied)}` : ""}</div>
+                  </div>
+                  <button onClick={() => setUseWallet((v) => !v)} aria-label="Toggle wallet" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>
+                    <div style={{ width: 46, height: 28, borderRadius: 999, background: useWallet ? "var(--color-primary)" : "var(--border-strong)", position: "relative", transition: "background 160ms" }}>
+                      <div style={{ position: "absolute", top: 3, left: useWallet ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(14,15,12,.3)", transition: "left 160ms" }} />
+                    </div>
+                  </button>
+                </div>
+              </Card>
+            )}
+
             <Card tone="white" style={{ padding: 24 }}>
               <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, textTransform: "uppercase", margin: "0 0 14px" }}>Payment method</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {([["upi", "UPI", "Google Pay, PhonePe, Paytm", "zap"], ["card", "Card", "Visa, Mastercard, RuPay", "compass"], ["wallet", "Turfie wallet", `Balance ${inr(240)}`, "shield"]] as const).map(([id, name, sub, icon]) => (
-                  <button key={id} onClick={() => setMethod(id)} style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", padding: "14px 16px", borderRadius: "var(--radius-lg)", cursor: "pointer", background: "var(--color-canvas)", border: method === id ? "1.5px solid var(--color-ink)" : "1.5px solid var(--border-subtle)" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: method === id ? "var(--color-primary)" : "var(--color-canvas-soft)", display: "grid", placeItems: "center" }}><Icon name={icon} size={20} /></div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{name}</div>
-                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>{sub}</div>
-                    </div>
-                    <div style={{ width: 20, height: 20, borderRadius: "50%", border: method === id ? "6px solid var(--color-ink)" : "2px solid var(--border-subtle)" }} />
-                  </button>
-                ))}
-              </div>
+              {payable <= 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "var(--color-primary-pale)", borderRadius: "var(--radius-lg)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-ink-deep)" }}>
+                  <Icon name="checkCircle" size={18} color="var(--color-positive)" /> Fully covered by your Turfie wallet — no payment needed.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {([["upi", "UPI", "Google Pay, PhonePe, Paytm", "zap"], ["card", "Card", "Visa, Mastercard, RuPay", "compass"]] as const).map(([id, name, sub, icon]) => (
+                    <button key={id} onClick={() => setMethod(id)} style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", padding: "14px 16px", borderRadius: "var(--radius-lg)", cursor: "pointer", background: "var(--color-canvas)", border: method === id ? "1.5px solid var(--color-ink)" : "1.5px solid var(--border-subtle)" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: method === id ? "var(--color-primary)" : "var(--color-canvas-soft)", display: "grid", placeItems: "center" }}><Icon name={icon} size={20} /></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15 }}>{name}</div>
+                        <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)" }}>{sub}</div>
+                      </div>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", border: method === id ? "6px solid var(--color-ink)" : "2px solid var(--border-subtle)" }} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </Card>
 
             <Card tone="sage" style={{ padding: 22 }}>
@@ -286,13 +320,14 @@ export function CheckoutScreen({ turfs }: { turfs: Turf[] }) {
               <div style={{ height: 1, background: "var(--border-subtle)", margin: "12px 0" }} />
               <Row label="Subtotal" val={inr(draft.total)} />
               <Row label="Convenience fee" val="Free" />
+              {walletApplied > 0 && <Row label="Turfie wallet" val={`– ${inr(walletApplied)}`} />}
               {split && <Row label={`Split ${players} ways`} val={`${inr(Math.ceil(draft.total / players))} each`} />}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, textTransform: "uppercase" }}>Total</span>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>{inr(draft.total)}</span>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, textTransform: "uppercase" }}>{walletApplied > 0 ? "To pay" : "Total"}</span>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>{inr(payable)}</span>
               </div>
               <Button fullWidth size="lg" style={{ marginTop: 18 }} disabled={expired || processing} onClick={pay} iconRight={!processing ? <Icon name="arrowRight" size={18} /> : undefined}>
-                {processing ? "Processing…" : `Pay ${inr(draft.total)} & confirm`}
+                {processing ? "Processing…" : payable <= 0 ? "Confirm booking" : `Pay ${inr(payable)} & confirm`}
               </Button>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 12, fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>
                 <Icon name="shield" size={14} color="var(--color-positive)" /> Secured payment · 256-bit encryption

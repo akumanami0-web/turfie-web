@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Badge, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow, CourtArt } from "@/components/ui/layout-bits";
@@ -7,7 +7,10 @@ import { ModalShell } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
 import { inr } from "@/lib/format";
+import { SPORT_LABEL } from "@/lib/content";
 import type { TournamentView } from "@/lib/tournaments";
+
+const DAY = 24 * 60 * 60 * 1000;
 
 function statusBadge(s: string) {
   if (s === "live") return <Badge variant="brand">● Live now</Badge>;
@@ -15,15 +18,55 @@ function statusBadge(s: string) {
   return <Badge variant="positive">Upcoming</Badge>;
 }
 
-function BattleCard({ t, loggedIn, onJoin, onLeave, onPass }: { t: TournamentView; loggedIn: boolean; onJoin: (t: TournamentView) => void; onLeave: (t: TournamentView) => void; onPass: (t: TournamentView) => void }) {
+/** Ticks every second so countdowns stay live. */
+function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return now;
+}
+
+function fmtCountdown(ms: number) {
+  if (ms <= 0) return "0m";
+  const d = Math.floor(ms / DAY);
+  const h = Math.floor((ms % DAY) / (60 * 60 * 1000));
+  const m = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  const s = Math.floor((ms % (60 * 1000)) / 1000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
+
+/** Returns the join/kickoff state for a battle from its startAt. */
+function battleTiming(t: TournamentView, now: number) {
+  if (!t.startAt || t.status === "completed") return { hasTimer: false, joinClosed: t.status === "completed", label: "", value: "" };
+  const cutoff = t.startAt - DAY;
+  if (now < cutoff) return { hasTimer: true, joinClosed: false, label: "Joining closes in", value: fmtCountdown(cutoff - now) };
+  if (now < t.startAt) return { hasTimer: true, joinClosed: true, label: "Kicks off in", value: fmtCountdown(t.startAt - now) };
+  return { hasTimer: true, joinClosed: true, label: "Kicked off", value: "" };
+}
+
+function BattleCard({ t, onJoin, onLeave, onPass }: { t: TournamentView; onJoin: (t: TournamentView) => void; onLeave: (t: TournamentView) => void; onPass: (t: TournamentView) => void }) {
+  const isActive = t.status !== "completed" && !!t.startAt;
+  const now = useNow(isActive);
+  const timing = battleTiming(t, now);
   const full = t.entrants >= t.slots && !t.joined;
   const pct = Math.min(100, Math.round((t.entrants / Math.max(1, t.slots)) * 100));
+  const sportLabel = SPORT_LABEL[t.sport] || t.sport;
 
   return (
     <Card tone="white" padding={0} style={{ overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ position: "relative" }}>
         <CourtArt sport={t.sport} height={140} />
-        <div style={{ position: "absolute", top: 12, left: 12 }}>{statusBadge(t.status)}</div>
+        <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
+          {statusBadge(t.status)}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(255,255,255,0.92)", color: "var(--color-ink)", borderRadius: "var(--radius-pill)", padding: "4px 11px", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12 }}>
+            <Icon name="trophy" size={13} color="var(--color-ink)" />{sportLabel}
+          </span>
+        </div>
         {t.prizePool && (
           <div style={{ position: "absolute", top: 12, right: 12, background: "var(--color-ink)", color: "var(--color-primary)", borderRadius: "var(--radius-pill)", padding: "4px 12px", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5 }}>
             🏆 {t.prizePool}
@@ -42,6 +85,15 @@ function BattleCard({ t, loggedIn, onJoin, onLeave, onPass }: { t: TournamentVie
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="clock" size={15} color="var(--color-mute)" />{t.time}</span>
         </div>
 
+        {/* Live countdown timer */}
+        {timing.hasTimer && timing.value && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, background: timing.joinClosed ? "var(--color-canvas-soft)" : "var(--color-primary-pale)", borderRadius: "var(--radius-md)", padding: "8px 12px" }}>
+            <Icon name="clock" size={15} color={timing.joinClosed ? "var(--color-mute)" : "var(--color-ink-deep)"} />
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>{timing.label}</span>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, marginLeft: "auto", color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>{timing.value}</span>
+          </div>
+        )}
+
         <div style={{ marginTop: 6 }}>
           <div style={{ height: 7, borderRadius: 999, background: "var(--color-canvas-soft)", overflow: "hidden" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: "var(--color-primary)" }} />
@@ -58,6 +110,8 @@ function BattleCard({ t, loggedIn, onJoin, onLeave, onPass }: { t: TournamentVie
               <Button size="sm" variant="ghost" onClick={() => onLeave(t)}>Leave</Button>
               <Button size="sm" variant="primary" onClick={() => onPass(t)} iconLeft={<Icon name="navigation" size={15} />}>View pass</Button>
             </div>
+          ) : timing.joinClosed ? (
+            <Chip>Joining closed</Chip>
           ) : full ? (
             <Chip>Full</Chip>
           ) : (
@@ -133,7 +187,7 @@ export function BattlesScreen({ tournaments, loggedIn }: { tournaments: Tourname
           </div>
         ) : (
           <div className="t-card-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-            {shown.map((t) => <BattleCard key={t.id} t={t} loggedIn={loggedIn} onJoin={(b) => setConfirm({ type: "join", t: b })} onLeave={(b) => setConfirm({ type: "leave", t: b })} onPass={(b) => router.push(`/battle/${b.id}/pass`)} />)}
+            {shown.map((t) => <BattleCard key={t.id} t={t} onJoin={(b) => setConfirm({ type: "join", t: b })} onLeave={(b) => setConfirm({ type: "leave", t: b })} onPass={(b) => router.push(`/battle/${b.id}/pass`)} />)}
           </div>
         )}
       </Container>

@@ -5,6 +5,7 @@ import { getLockOwner } from "@/lib/owner";
 import { rowToBooking } from "@/lib/bookings";
 import { refundQuote } from "@/lib/content";
 import { rescheduleStatus, recordReschedule } from "@/lib/reschedule";
+import { adjustWallet } from "@/lib/wallet-balance";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,17 +22,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (action === "cancel") {
     const q = refundQuote(existing.kickoffAt ? existing.kickoffAt.getTime() : null);
+    const refundAmount = Math.round((existing.price * q.pct) / 100);
+    const toWallet = body.refundMethod === "wallet";
     const updated = await prisma.booking.update({
       where: { id },
       data: {
         status: "cancelled",
-        refundMethod: "Turfie wallet",
+        refundMethod: refundAmount === 0 ? null : toWallet ? "Turfie wallet" : "original payment method",
         cancelledAt: new Date(),
         refundPct: q.pct,
-        refundAmount: Math.round((existing.price * q.pct) / 100),
+        refundAmount,
       },
     });
-    return NextResponse.json({ booking: rowToBooking(updated) });
+    // Wallet refunds land instantly; original-method refunds follow the 3–5 day flow.
+    let newUser = null;
+    if (toWallet && refundAmount > 0) {
+      const newBalance = await adjustWallet(user.id, refundAmount, "refund", `Refund for ${id}`);
+      newUser = { ...user, walletBalance: newBalance };
+    }
+    return NextResponse.json({ booking: rowToBooking(updated), user: newUser });
   }
 
   if (action === "reschedule") {

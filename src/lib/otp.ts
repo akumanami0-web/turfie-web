@@ -48,14 +48,22 @@ async function checkStored(channel: string, target: string, purpose: string, cod
 /* ── Phone (Twilio Verify) ── */
 export async function startPhoneOtp(phone: string, channel: "sms" | "whatsapp"): Promise<{ simulated: boolean }> {
   if (twilioConfigured()) {
-    const sid = process.env.TWILIO_ACCOUNT_SID!, token = process.env.TWILIO_AUTH_TOKEN!, svc = process.env.TWILIO_VERIFY_SERVICE_SID!;
-    const res = await fetch(`https://verify.twilio.com/v2/Services/${svc}/Verifications`, {
-      method: "POST",
-      headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ To: phone, Channel: channel }),
-    });
-    if (!res.ok) throw new Error("twilio start failed: " + (await res.text()));
-    return { simulated: false };
+    try {
+      const sid = process.env.TWILIO_ACCOUNT_SID!, token = process.env.TWILIO_AUTH_TOKEN!, svc = process.env.TWILIO_VERIFY_SERVICE_SID!;
+      const res = await fetch(`https://verify.twilio.com/v2/Services/${svc}/Verifications`, {
+        method: "POST",
+        headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: phone, Channel: channel }),
+      });
+      if (!res.ok) throw new Error("twilio start failed: " + (await res.text()));
+      return { simulated: false };
+    } catch (e) {
+      // Twilio configured but couldn't actually send (e.g. no credits / trial /
+      // unverified number) → fall back to the demo code so the flow still works.
+      console.warn("twilio send failed, falling back to demo code:", e instanceof Error ? e.message : e);
+      await store("phone", phone, "verify", DEMO_CODE);
+      return { simulated: true };
+    }
   }
   await store("phone", phone, "verify", DEMO_CODE);
   console.log(`[otp] demo phone code for ${phone}: ${DEMO_CODE}`);
@@ -63,18 +71,25 @@ export async function startPhoneOtp(phone: string, channel: "sms" | "whatsapp"):
 }
 
 export async function checkPhoneOtp(phone: string, code: string): Promise<boolean> {
+  // A demo/fallback code stored for this number always wins (covers the case
+  // where Twilio send failed and we fell back).
+  if (await checkStored("phone", phone, "verify", code)) return true;
   if (twilioConfigured()) {
-    const sid = process.env.TWILIO_ACCOUNT_SID!, token = process.env.TWILIO_AUTH_TOKEN!, svc = process.env.TWILIO_VERIFY_SERVICE_SID!;
-    const res = await fetch(`https://verify.twilio.com/v2/Services/${svc}/VerificationCheck`, {
-      method: "POST",
-      headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ To: phone, Code: code }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.status === "approved";
+    try {
+      const sid = process.env.TWILIO_ACCOUNT_SID!, token = process.env.TWILIO_AUTH_TOKEN!, svc = process.env.TWILIO_VERIFY_SERVICE_SID!;
+      const res = await fetch(`https://verify.twilio.com/v2/Services/${svc}/VerificationCheck`, {
+        method: "POST",
+        headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: phone, Code: code }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.status === "approved";
+    } catch {
+      return false;
+    }
   }
-  return checkStored("phone", phone, "verify", code);
+  return false;
 }
 
 /* ── Email (Resend) ── */

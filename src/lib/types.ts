@@ -82,4 +82,5 @@ export type SessionUser = {
   phoneVerified: boolean;
   staff: boolean;   // Turfie internal team
   vendor: boolean;  // turf owner / operator
+  walletBalance: number;
 };

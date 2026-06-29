@@ -74,6 +74,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
       phoneVerified: u.phoneVerified,
       staff,
       vendor: u.role === "operator",
+      walletBalance: u.walletBalance,
     };
   } catch {
     return null;

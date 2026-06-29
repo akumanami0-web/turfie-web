@@ -6,6 +6,7 @@ import { Container, Display, Eyebrow, CourtArt } from "@/components/ui/layout-bi
 import { Icon } from "@/components/ui/Icon";
 import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
+import { useSession } from "@/components/providers/session";
 import { refundQuote, RESCHEDULE_FREE, RESCHEDULE_FEE } from "@/lib/content";
 import { turfHours } from "@/lib/turf-utils";
 import { nextDays, hourRange, slotRange, inr } from "@/lib/format";
@@ -61,11 +62,12 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
   );
 }
 
-function CancelModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Turf; onClose: () => void; onConfirm: () => void }) {
+function CancelModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Turf; onClose: () => void; onConfirm: (method: "wallet" | "original") => void }) {
   const q = refundQuote(b.kickoffAt);
   const refund = Math.round((b.price * q.pct) / 100);
   const noteTone = q.pct === 100 ? "var(--color-primary-pale)" : q.pct === 50 ? "var(--color-warning-pale)" : "var(--color-negative-pale)";
   const noteColor = q.pct === 0 ? "var(--color-negative-deep)" : "var(--color-ink-deep)";
+  const [method, setMethod] = useState<"wallet" | "original">("wallet");
   return (
     <ModalShell onClose={onClose} maxWidth={440}>
       <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--color-warning-pale)", display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
@@ -75,21 +77,39 @@ function CancelModal({ b, turf, onClose, onConfirm }: { b: Booking; turf: Turf; 
       <p style={{ fontFamily: "var(--font-body)", fontSize: 15, lineHeight: 1.5, color: "var(--color-body)", textAlign: "center", margin: "0 0 16px" }}>
         {turf.name} · {b.dateLabel} · {b.time}
       </p>
-      <div style={{ background: noteTone, borderRadius: "var(--radius-lg)", padding: "14px 16px", marginBottom: 20 }}>
+      <div style={{ background: noteTone, borderRadius: "var(--radius-lg)", padding: "14px 16px", marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, color: noteColor }}>{q.label}</span>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: noteColor }}>{q.pct === 0 ? "₹0" : inr(refund)}</span>
         </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 12.5, lineHeight: 1.45, color: noteColor, opacity: 0.85, margin: "6px 0 0" }}>
-          {q.pct === 100 && "Cancelling more than 24h before kick-off — full refund to your Turfie wallet."}
-          {q.pct === 50 && "Cancelling between 4h and 24h before kick-off — 50% refund to your Turfie wallet."}
+          {q.pct === 100 && "Cancelling more than 24h before kick-off — you get a full refund."}
+          {q.pct === 50 && "Cancelling between 4h and 24h before kick-off — 50% refund."}
           {q.pct === 0 && "Cancelling less than 4h before kick-off — this booking is non-refundable."}
-          {q.pct > 0 && " Arrives in 3–5 working days."}
         </p>
       </div>
+
+      {refund > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "var(--color-ink)", marginBottom: 8 }}>Refund {inr(refund)} to</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {([["wallet", "Turfie wallet", "Instant — use it on your next booking"], ["original", "Original payment method", "Arrives in 3–5 working days"]] as const).map(([id, name, sub]) => (
+              <button key={id} onClick={() => setMethod(id)} style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "12px 14px", borderRadius: "var(--radius-lg)", cursor: "pointer", background: "var(--color-canvas)", border: method === id ? "1.5px solid var(--color-ink)" : "1.5px solid var(--border-subtle)" }}>
+                <Icon name={id === "wallet" ? "wallet" : "refresh"} size={18} color="var(--color-ink-deep)" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}>{name}</div>
+                  <div style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>{sub}</div>
+                </div>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", border: method === id ? "5px solid var(--color-ink)" : "2px solid var(--border-subtle)" }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Button fullWidth size="lg" onClick={onClose}>Keep my booking</Button>
-        <button onClick={onConfirm} style={{ width: "100%", padding: "14px", borderRadius: "var(--radius-pill)", border: "1.5px solid var(--color-warning-deep)", background: "transparent", color: "var(--color-warning-deep)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+        <button onClick={() => onConfirm(method)} style={{ width: "100%", padding: "14px", borderRadius: "var(--radius-pill)", border: "1.5px solid var(--color-warning-deep)", background: "transparent", color: "var(--color-warning-deep)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
           Yes, cancel booking
         </button>
       </div>
@@ -187,6 +207,7 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
 export function BookingsScreen({ initialBookings, turfs, reschedule }: { initialBookings: Booking[]; turfs: Turf[]; reschedule: { freeLeft: number; fee: number } }) {
   const router = useRouter();
   const toast = useToast();
+  const { setUser } = useSession();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState("all");
   const [modal, setModal] = useState<{ type: "cancel" | "reschedule"; b: Booking } | null>(null);
@@ -199,10 +220,15 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
     return res.ok ? (await res.json()).booking as Booking : null;
   }
 
-  async function doCancel(b: Booking) {
-    const updated = await patch(b.id, { action: "cancel" });
+  async function doCancel(b: Booking, method: "wallet" | "original") {
+    const res = await fetch(`/api/bookings/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel", refundMethod: method }) });
     setModal(null);
-    if (updated) { setBookings((prev) => prev.map((x) => (x.id === b.id ? updated : x))); toast("Booking cancelled — refund initiated"); router.push("/account/refunds"); }
+    if (!res.ok) { toast("Couldn't cancel. Try again.", "error"); return; }
+    const data = await res.json();
+    if (data.user) setUser(data.user); // wallet refund reflected instantly
+    setBookings((prev) => prev.map((x) => (x.id === b.id ? (data.booking as Booking) : x)));
+    toast(method === "wallet" ? "Cancelled — refund added to your wallet" : "Cancelled — refund initiated");
+    router.push("/account/refunds");
   }
   async function doReschedule(b: Booking, p: { dateLabel: string; dateKey: string; time: string; startHour: number; duration: string; durationHrs: number }) {
     const updated = await patch(b.id, { action: "reschedule", ...p });
@@ -242,7 +268,7 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
           </div>
         )}
         {modal?.type === "cancel" && turfMap.get(modal.b.turfId) && (
-          <CancelModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} onClose={() => setModal(null)} onConfirm={() => doCancel(modal.b)} />
+          <CancelModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} onClose={() => setModal(null)} onConfirm={(method) => doCancel(modal.b, method)} />
         )}
         {modal?.type === "reschedule" && turfMap.get(modal.b.turfId) && (
           <RescheduleModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} resched={reschedule} onClose={() => setModal(null)} onConfirm={(p) => doReschedule(modal.b, p)} />
