@@ -13,6 +13,7 @@ export const ICON_PATHS: Record<string, React.ReactNode> = {
   calendar: <><rect x="3" y="4.5" width="18" height="16.5" rx="3" /><path d="M16 2.5v4M8 2.5v4M3 10h18" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
   pin: <><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
+  droplet: <><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" /></>,
   star: <path d="M12 2.5l2.9 6 6.6.6-5 4.4 1.5 6.5L12 16.8 6.5 20l1.5-6.5-5-4.4 6.6-.6z" fill="currentColor" stroke="none" />,
   starLine: <path d="M12 2.5l2.9 6 6.6.6-5 4.4 1.5 6.5L12 16.8 6.5 20l1.5-6.5-5-4.4 6.6-.6z" />,
   heart: <path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z" />,

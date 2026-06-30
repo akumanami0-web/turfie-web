@@ -4,21 +4,37 @@ import React from "react";
 export type Glyph = "sun" | "cloud" | "rain" | "storm" | "fog";
 
 /** Animated falling-rain overlay. `count` droplets, absolutely positioned over
-    the parent (parent must be position:relative + overflow:hidden). */
-export function RainOverlay({ count = 14, color }: { count?: number; color?: string }) {
+    the parent (parent must be position:relative + overflow:hidden).
+    `diagonal` makes the rain stream in from the top-right. */
+export function RainOverlay({ count = 14, color, diagonal = false }: { count?: number; color?: string; diagonal?: boolean }) {
   // Deterministic per-index placement so SSR + client markup match.
   const drops = Array.from({ length: count }, (_, i) => {
-    const left = ((i * 37) % 100) + (i % 3); // spread across width
+    // Bias toward the right edge so diagonal rain visibly enters top-right.
+    const left = diagonal ? 30 + ((i * 41) % 75) : ((i * 37) % 100) + (i % 3);
     const dur = 0.7 + ((i * 13) % 7) / 10;   // 0.7–1.3s
     const delay = ((i * 29) % 13) / 10;       // 0–1.2s
     const h = 9 + ((i * 7) % 7);              // 9–15px
     return { left, dur, delay, h };
   });
   return (
-    <span className="t-rain" aria-hidden>
+    <span className={diagonal ? "t-rain t-rain-diag" : "t-rain"} aria-hidden>
       {drops.map((d, i) => (
         <i key={i} style={{ left: `${d.left}%`, height: d.h, animationDuration: `${d.dur}s`, animationDelay: `${d.delay}s`, ...(color ? { background: `linear-gradient(to bottom, transparent, ${color})` } : {}) }} />
       ))}
+    </span>
+  );
+}
+
+/** Drifting fog bands. */
+export function FogOverlay({ count = 4 }: { count?: number }) {
+  const bands = Array.from({ length: count }, (_, i) => ({
+    top: 10 + i * 22,
+    dur: 7 + (i % 4) * 2,
+    delay: (i * 13) % 9 / 2,
+  }));
+  return (
+    <span className="t-fog" aria-hidden>
+      {bands.map((b, i) => <span key={i} style={{ top: `${b.top}%`, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }} />)}
     </span>
   );
 }

@@ -6,17 +6,22 @@ import { Icon } from "@/components/ui/Icon";
 import { ModalShell } from "@/components/ui/Modal";
 import { ScanScreen } from "@/components/screens/ScanScreen";
 import { inr, inrK } from "@/lib/format";
+import { bookingPhase, type Phase } from "@/lib/booking-state";
 
-type VBooking = { id: string; who: string; turf: string; unit: string; field: string; dateLabel: string; time: string; price: number; status: string; checkedIn: boolean; isToday: boolean; players?: string; rescheduledAt?: string | null; prevDateLabel?: string | null; prevTime?: string | null };
+type VBooking = { id: string; who: string; turf: string; unit: string; field: string; dateLabel: string; time: string; price: number; status: string; checkedIn: boolean; isToday: boolean; players?: string; dateKey?: string | null; startHour?: number | null; durationHrs?: number; rescheduledAt?: string | null; prevDateLabel?: string | null; prevTime?: string | null };
 type VTurf = { id: string; name: string; area: string; unit: string };
 
 const cell: React.CSSProperties = { padding: "12px 14px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)", textAlign: "left" };
 const th: React.CSSProperties = { ...cell, fontSize: 11.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--color-mute)" };
 
+function vphase(b: VBooking): Phase {
+  return bookingPhase(b.dateKey ?? null, b.startHour ?? null, b.durationHrs ?? 1, b.status, b.checkedIn);
+}
 function statusBadge(b: VBooking) {
-  if (b.checkedIn) return <Badge variant="positive">Checked in</Badge>;
-  if (b.status === "cancelled") return <Badge variant="negative">Cancelled</Badge>;
-  if (b.status === "completed") return <Badge variant="neutral">Completed</Badge>;
+  const p = vphase(b);
+  if (p === "checkedin") return <Badge variant="positive">Checked in</Badge>;
+  if (p === "cancelled") return <Badge variant="negative">Cancelled</Badge>;
+  if (p === "completed" || p === "missed") return <Badge variant="neutral">Completed</Badge>;
   return <Badge variant="ink">Upcoming</Badge>;
 }
 
@@ -28,7 +33,10 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
   const shown = bookings.filter((b) => {
     if (filter === "all") return true;
     if (filter === "today") return b.isToday && b.status !== "cancelled";
-    return b.status === filter;
+    const p = vphase(b);
+    if (filter === "upcoming") return p === "upcoming" || p === "checkedin";
+    if (filter === "completed") return p === "completed" || p === "missed";
+    return p === "cancelled";
   });
 
   return (
@@ -100,7 +108,7 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
 
         {detail && (
           <ModalShell onClose={() => setDetail(null)} maxWidth={460}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, paddingRight: 40 }}>
               <div>
                 <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-mute)" }}>Booking</div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22 }}>{detail.id}</div>
@@ -112,6 +120,12 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
                 <div key={l}><div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--color-mute)" }}>{l}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{v}</div></div>
               ))}
             </div>
+            {vphase(detail) === "missed" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 13px", marginTop: 14, background: "var(--color-negative-pale)", borderRadius: "var(--radius-md)" }}>
+                <Icon name="x" size={16} color="var(--color-negative)" />
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-negative-deep)" }}>Missed — the slot ended and the player never checked in.</span>
+              </div>
+            )}
             {detail.rescheduledAt && detail.prevDateLabel && (
               <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", marginTop: 16, background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)" }}>
                 <Icon name="refresh" size={16} color="var(--color-warning-deep)" />

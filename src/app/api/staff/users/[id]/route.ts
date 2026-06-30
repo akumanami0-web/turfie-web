@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { getTurfs } from "@/lib/turfs";
 import { slotRange } from "@/lib/format";
 import { adjustWallet } from "@/lib/wallet-balance";
+import { freeReschedulesLeft, adjustFreeReschedules } from "@/lib/reschedule";
 
 /** Staff: full details for one player (profile + booking history). */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -14,9 +15,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const u = await prisma.user.findUnique({ where: { id } });
   if (!u) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [rows, turfs] = await Promise.all([
+  const [rows, turfs, freeLeft] = await Promise.all([
     prisma.booking.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
     getTurfs(),
+    freeReschedulesLeft(id),
   ]);
   const turfName = new Map(turfs.map((t) => [t.id, t.name]));
   const bookings = rows.map((b) => ({
@@ -30,6 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       id: u.id, name: u.fullName, email: u.email, phone: u.phone, phoneVerified: u.phoneVerified,
       role: u.role, city: u.city, level: u.level, gender: u.gender, birthday: u.birthday,
       initials: u.initials, photoUrl: u.photoUrl, suspended: u.suspended, walletBalance: u.walletBalance,
+      freeReschedules: freeLeft,
       joined: new Date(u.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
     },
     bookings,
@@ -60,7 +63,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (typeof b.walletDelta === "number" && b.walletDelta !== 0) {
     walletBalance = await adjustWallet(id, Math.round(b.walletDelta), b.walletDelta > 0 ? "admin_credit" : "admin_debit", b.walletNote ? String(b.walletNote) : "Staff adjustment");
   }
-  return NextResponse.json({ ok: true, walletBalance });
+  let freeReschedules: number | undefined;
+  if (typeof b.freeReschedDelta === "number" && b.freeReschedDelta !== 0) {
+    freeReschedules = await adjustFreeReschedules(id, Math.sign(b.freeReschedDelta));
+  }
+  return NextResponse.json({ ok: true, walletBalance, freeReschedules });
 }
 
 /** Staff: permanently delete a user. Bookings are kept (anonymised) for records. */

@@ -20,3 +20,26 @@ export async function recordReschedule(owner: string) {
     create: { owner, month, count: 1 },
   });
 }
+
+/** Free reschedules left this month for a user id. */
+export async function freeReschedulesLeft(userId: string): Promise<number> {
+  return (await rescheduleStatus("u:" + userId)).freeLeft;
+}
+
+/** Admin: nudge a user's remaining free reschedules by ±1 (clamped 0..FREE).
+    Returns the new freeLeft. */
+export async function adjustFreeReschedules(userId: string, delta: number): Promise<number> {
+  const owner = "u:" + userId;
+  const month = monthKey();
+  const row = await prisma.rescheduleUsage.findUnique({ where: { owner_month: { owner, month } } });
+  const used = row?.count ?? 0;
+  const freeLeft = Math.max(0, RESCHEDULE_FREE - used);
+  const nextFree = Math.min(RESCHEDULE_FREE, Math.max(0, freeLeft + delta));
+  const nextUsed = RESCHEDULE_FREE - nextFree;
+  await prisma.rescheduleUsage.upsert({
+    where: { owner_month: { owner, month } },
+    update: { count: nextUsed },
+    create: { owner, month, count: nextUsed },
+  });
+  return nextFree;
+}

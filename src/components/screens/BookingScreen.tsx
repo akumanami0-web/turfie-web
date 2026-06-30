@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
 import { RainOverlay } from "@/components/ui/Weather";
 import { turfHours, turfFields } from "@/lib/turf-utils";
+import { slotIsPast } from "@/lib/tz";
 import { nextDays, fmtHour, hourRange, inr, mmss } from "@/lib/format";
 import type { Turf } from "@/lib/types";
 
@@ -221,29 +222,31 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
               </div>
               <div className="t-slot-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 10 }}>
                 {hours.map((h) => {
+                  const isPast = slotIsPast(date, h);
                   const isTaken = takenSet.has(h);
                   const other = heldByOther(h);
                   // Each tile is a *start* option labelled with its full range
                   // (e.g. "2 PM – 4 PM"); only the chosen start lights up.
                   const on = start === h;
                   const blocked = !isTaken && !other && !on && !canStart(h, duration);
-                  const disabled = (isTaken || !!other || blocked) && !on;
+                  const disabled = (isPast || isTaken || !!other || blocked) && !on;
                   let bg = "var(--color-canvas)", col = "var(--color-ink)", bd = "var(--border-subtle)", dec = "none", op = 1;
                   if (on) { bg = "var(--color-ink)"; col = "var(--color-canvas)"; bd = "var(--color-ink)"; }
+                  else if (isPast) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; op = 0.6; }
                   else if (other) { bg = "var(--color-warning-pale)"; col = "var(--color-warning-deep)"; bd = "transparent"; }
                   else if (isTaken) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; }
                   else if (blocked) { bg = "var(--color-canvas)"; col = "var(--color-mute)"; bd = "var(--border-subtle)"; op = 0.5; }
                   // Rain forecast: flag bookable, non-selected slots with a high chance of rain.
                   const rain = rainAt(h);
-                  const showRain = rain >= 60 && !isTaken && !other && !on && !blocked;
+                  const showRain = rain >= 60 && !isPast && !isTaken && !other && !on && !blocked;
                   return (
-                    <button key={h} disabled={disabled} onClick={() => pick(h)}
-                      title={other ? "Being booked by another player" : isTaken ? "Already booked" : blocked ? "Not enough consecutive time" : showRain ? `${rain}% chance of rain` : ""}
-                      style={{ padding: "11px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${showRain ? "#38c8ff" : bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, textDecoration: dec, opacity: op, position: "relative", whiteSpace: "nowrap", overflow: "hidden" }}>
-                      {showRain && <RainOverlay count={7} />}
+                    <button key={h} disabled={disabled} onClick={() => { if (isPast) { toast("That time has already passed", "warning"); return; } pick(h); }}
+                      title={isPast ? "This time has passed" : other ? "Being booked by another player" : isTaken ? "Already booked" : blocked ? "Not enough consecutive time" : showRain ? `${rain}% chance of rain` : ""}
+                      style={{ padding: "10px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${showRain ? "#38c8ff" : bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, textDecoration: dec, opacity: op, position: "relative", whiteSpace: "nowrap", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minHeight: 46, justifyContent: "center" }}>
+                      {showRain && <RainOverlay count={7} diagonal />}
                       <span style={{ position: "relative", zIndex: 1 }}>{hourRange(h, duration)}</span>
-                      {other && <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, position: "relative", zIndex: 1 }}>{mmss(other.until - Date.now())} held</div>}
-                      {showRain && <span style={{ position: "absolute", top: 4, right: 5, zIndex: 1, fontSize: 10, fontWeight: 700, color: "#0a8fc2", display: "inline-flex", alignItems: "center", gap: 2 }}>💧{rain}%</span>}
+                      {other && <div style={{ fontSize: 10, fontWeight: 700, position: "relative", zIndex: 1 }}>{mmss(other.until - Date.now())} held</div>}
+                      {showRain && <span style={{ position: "relative", zIndex: 1, fontSize: 10.5, fontWeight: 700, color: "#0a8fc2", display: "inline-flex", alignItems: "center", gap: 3 }}><Icon name="droplet" size={11} color="#0a8fc2" />{rain}% rain</span>}
                     </button>
                   );
                 })}

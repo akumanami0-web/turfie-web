@@ -10,12 +10,18 @@ import { useSession } from "@/components/providers/session";
 import { refundQuote, RESCHEDULE_FREE, RESCHEDULE_FEE } from "@/lib/content";
 import { turfHours } from "@/lib/turf-utils";
 import { nextDays, hourRange, slotRange, inr } from "@/lib/format";
+import { bookingPhase, type Phase } from "@/lib/booking-state";
+import { slotIsPast } from "@/lib/tz";
 import type { Booking, Turf } from "@/lib/types";
 
-function statusBadge(s: string) {
-  if (s === "upcoming") return <Badge variant="positive">Upcoming</Badge>;
-  if (s === "completed") return <Badge variant="neutral">Completed</Badge>;
-  return <Badge variant="negative">Cancelled</Badge>;
+function phaseBadge(p: Phase) {
+  if (p === "upcoming") return <Badge variant="positive">Upcoming</Badge>;
+  if (p === "checkedin") return <Badge variant="brand">Checked in</Badge>;
+  if (p === "cancelled") return <Badge variant="negative">Cancelled</Badge>;
+  return <Badge variant="neutral">Completed</Badge>;
+}
+function bphase(b: Booking): Phase {
+  return bookingPhase(b.dateKey ?? null, b.startHour ?? null, b.durationHrs ?? 1, b.status, !!b.checkedInAt);
 }
 
 function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack, onPass }: {
@@ -32,7 +38,7 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, lineHeight: 1.15 }}>{turf.name}</div>
             <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-mute)", marginTop: 2 }}>{turf.area} · {b.id}</div>
           </div>
-          {statusBadge(b.status)}
+          {phaseBadge(bphase(b))}
         </div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="calendar" size={15} color="var(--color-mute)" />{b.dateLabel}</span>
@@ -42,19 +48,28 @@ function BookingRow({ b, turf, onCancel, onReschedule, onRebook, onView, onTrack
         <div style={{ marginTop: "auto", paddingTop: 14 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1, marginBottom: 12 }}>{inr(b.price)}</div>
           <div style={{ display: "flex", gap: 8 }}>
-            {b.status === "upcoming" && (<>
-              <Button size="sm" variant="tertiary" onClick={() => onCancel(b)} style={{ flex: 1, padding: "8px 6px" }}>Cancel</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onReschedule(b)} style={{ flex: 1, padding: "8px 6px" }}>Reschedule</Button>
-              <Button size="sm" variant="primary" onClick={() => onPass(b)} style={{ flex: 1, padding: "8px 6px" }}>{b.checkedInAt ? "Pass" : "View pass"}</Button>
-            </>)}
-            {b.status === "completed" && (<>
-              <Button size="sm" variant="tertiary" onClick={() => onRebook(b)} style={{ flex: 1 }}>Rebook</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
-            </>)}
-            {b.status === "cancelled" && (<>
-              <Button size="sm" variant="tertiary" onClick={onTrack} iconLeft={<Icon name="refresh" size={15} />} style={{ flex: 1 }}>Track refund</Button>
-              <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
-            </>)}
+            {(() => {
+              const p = bphase(b);
+              // Upcoming & not yet checked in → can cancel/reschedule.
+              if (p === "upcoming") return (<>
+                <Button size="sm" variant="tertiary" onClick={() => onCancel(b)} style={{ flex: 1, padding: "8px 6px" }}>Cancel</Button>
+                <Button size="sm" variant="tertiary" onClick={() => onReschedule(b)} style={{ flex: 1, padding: "8px 6px" }}>Reschedule</Button>
+                <Button size="sm" variant="primary" onClick={() => onPass(b)} style={{ flex: 1, padding: "8px 6px" }}>View pass</Button>
+              </>);
+              // Checked in (still ongoing) → just the pass, no cancel/reschedule.
+              if (p === "checkedin") return (
+                <Button size="sm" variant="primary" onClick={() => onPass(b)} style={{ flex: 1 }}>View pass</Button>
+              );
+              if (p === "cancelled") return (<>
+                <Button size="sm" variant="tertiary" onClick={onTrack} iconLeft={<Icon name="refresh" size={15} />} style={{ flex: 1 }}>Track refund</Button>
+                <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
+              </>);
+              // completed / missed
+              return (<>
+                <Button size="sm" variant="tertiary" onClick={() => onRebook(b)} style={{ flex: 1 }}>Rebook</Button>
+                <Button size="sm" variant="tertiary" onClick={() => onView(b)} style={{ flex: 1 }}>View turf</Button>
+              </>);
+            })()}
           </div>
         </div>
       </div>
@@ -176,18 +191,20 @@ function RescheduleModal({ b, turf, resched, onClose, onConfirm }: { b: Booking;
       <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "var(--color-ink)", marginBottom: 8 }}>New time {durHrs === 2 ? "(2 hrs)" : ""}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, maxHeight: 220, overflowY: "auto" }}>
         {hours.map((h) => {
+          const isPast = slotIsPast(date, h);
           const isTaken = takenSet.has(h) || heldSet.has(h);
           // One tile per start option, labelled with the full range; only the
           // chosen start lights up (matches the booking page).
           const on = start === h;
           const blocked = !on && !canStart(h);
-          const disabled = (isTaken || blocked) && !on;
+          const disabled = (isTaken || blocked || isPast) && !on;
           let bg = "var(--color-canvas)", col = "var(--color-ink)", bd = "var(--border-subtle)", op = 1, dec = "none";
           if (on) { bg = "var(--color-ink)"; col = "var(--color-canvas)"; bd = "var(--color-ink)"; }
+          else if (isPast) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; op = 0.6; }
           else if (isTaken) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; }
           else if (blocked) { op = 0.45; }
           return (
-            <button key={h} disabled={disabled} onClick={() => { if (!canStart(h)) { toast("Pick a free slot", "warning"); return; } setStart(h); }} style={{ padding: "10px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, opacity: op, textDecoration: dec, whiteSpace: "nowrap" }}>
+            <button key={h} disabled={disabled} onClick={() => { if (isPast) { toast("That time has already passed", "warning"); return; } if (!canStart(h)) { toast("Pick a free slot", "warning"); return; } setStart(h); }} style={{ padding: "10px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, opacity: op, textDecoration: dec, whiteSpace: "nowrap" }}>
               {hourRange(h, durHrs)}
             </button>
           );
@@ -214,7 +231,13 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
   const [modal, setModal] = useState<{ type: "cancel" | "reschedule"; b: Booking } | null>(null);
   const turfMap = useMemo(() => new Map(turfs.map((t) => [t.id, t])), [turfs]);
   const tabs: [string, string][] = [["all", "All"], ["upcoming", "Upcoming"], ["completed", "Completed"], ["cancelled", "Cancelled"]];
-  const list = bookings.filter((b) => filter === "all" || b.status === filter);
+  const list = bookings.filter((b) => {
+    if (filter === "all") return true;
+    const p = bphase(b);
+    if (filter === "upcoming") return p === "upcoming" || p === "checkedin";
+    if (filter === "completed") return p === "completed" || p === "missed";
+    return p === "cancelled";
+  });
 
   async function patch(id: string, body: Record<string, unknown>) {
     const res = await fetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

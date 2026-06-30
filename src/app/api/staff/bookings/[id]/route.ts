@@ -4,7 +4,10 @@ import { getSessionUser } from "@/lib/auth";
 import { rowToBooking } from "@/lib/bookings";
 import { getTurf } from "@/lib/turfs";
 import { slotRange, fmtDateShort } from "@/lib/format";
-import { istDate } from "@/lib/tz";
+import { istDate, slotIsPast } from "@/lib/tz";
+import { freeReschedulesLeft, recordReschedule } from "@/lib/reschedule";
+import { RESCHEDULE_FEE, RESCHEDULE_FREE } from "@/lib/content";
+import { sendEmail, sendWhatsApp } from "@/lib/notify";
 
 /** Staff: full booking detail for the popup. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -64,15 +67,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ booking: rowToBooking(updated) });
   }
 
-  // Staff override reschedule — no fee, no quota; admins can move any booking.
+  // Staff reschedule. mode "free" → uses one of the player's free reschedules
+  // (deducted from their account). mode "charge" → if free left, use it; else
+  // send a ₹50 Razorpay/pay link to WhatsApp + email and apply once paid.
   if (action === "reschedule") {
+    if (existing.checkedInAt) return NextResponse.json({ error: "This pass has already been used — it can't be changed." }, { status: 409 });
     const dateKey = b.dateKey ? String(b.dateKey) : existing.dateKey;
     const startHour = b.startHour != null ? Number(b.startHour) : existing.startHour;
     const durationHrs = b.durationHrs != null ? Math.max(1, Number(b.durationHrs)) : existing.durationHrs;
+    const mode = b.mode === "charge" ? "charge" : "free";
     if (!dateKey || startHour == null) return NextResponse.json({ error: "Pick a date and start time." }, { status: 400 });
     if (startHour < 0 || startHour > 23) return NextResponse.json({ error: "Start time is out of range." }, { status: 400 });
+    if (slotIsPast(dateKey, startHour)) return NextResponse.json({ error: "You can't move a booking to a time that's already passed." }, { status: 400 });
 
-    const updated = await prisma.booking.update({
+    const apply = async () => prisma.booking.update({
       where: { id },
       data: {
         dateKey,
@@ -85,11 +93,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         rescheduledAt: new Date(),
         prevDateLabel: existing.dateLabel,
         prevTime: slotRange(existing.startHour, existing.durationHrs) || existing.time,
-        // a moved booking that was already played/cancelled becomes upcoming again
+        pendingReschedule: null,
         status: existing.status === "cancelled" ? existing.status : "upcoming",
       },
     });
-    return NextResponse.json({ booking: rowToBooking(updated) });
+
+    const freeLeft = existing.userId ? await freeReschedulesLeft(existing.userId) : RESCHEDULE_FREE;
+
+    // Charge mode with no free reschedules left → require payment first.
+    if (mode === "charge" && freeLeft <= 0) {
+      const pending = { dateKey, startHour: Number(startHour), durationHrs };
+      await prisma.booking.update({ where: { id }, data: { pendingReschedule: JSON.stringify(pending) } });
+      const origin = new URL(req.url).origin;
+      const link = `${origin}/reschedule/${id}/pay`;
+      const fromLbl = `${existing.dateLabel} · ${slotRange(existing.startHour, existing.durationHrs) || existing.time}`;
+      const toLbl = `${fmtDateShort(new Date(`${dateKey}T00:00:00`))} · ${slotRange(startHour, durationHrs)}`;
+      const u = existing.userId ? await prisma.user.findUnique({ where: { id: existing.userId } }) : null;
+      const email = u?.email || existing.contactEmail;
+      const phone = u?.phone || existing.contactPhone;
+      const msg = `Turfie: to move your booking ${id} from ${fromLbl} to ${toLbl}, please pay the ₹${RESCHEDULE_FEE} reschedule fee here: ${link}`;
+      const [emailed, whatsApped] = await Promise.all([
+        email ? sendEmail(email, "Confirm your Turfie reschedule (₹" + RESCHEDULE_FEE + ")", `<p>${msg}</p>`) : Promise.resolve(false),
+        phone ? sendWhatsApp(phone, msg) : Promise.resolve(false),
+      ]);
+      return NextResponse.json({ ok: true, charged: true, link, sent: { email: emailed, whatsapp: whatsApped }, fee: RESCHEDULE_FEE });
+    }
+
+    // Free (or charge with free left): apply now and consume a free reschedule.
+    if (existing.userId) await recordReschedule("u:" + existing.userId);
+    const updated = await apply();
+    return NextResponse.json({ booking: rowToBooking(updated), freeLeft: existing.userId ? await freeReschedulesLeft(existing.userId) : null });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

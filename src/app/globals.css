@@ -156,17 +156,25 @@ input::placeholder, textarea::placeholder { color: var(--color-mute); }
 /* ── weather animations (brand-kit) ── */
 /* falling rain droplets used on rainy booking slots + the home banner */
 .t-rain { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.t-rain i { position: absolute; top: -14%; width: 2px; height: 12px; border-radius: 2px;
+.t-rain i { position: absolute; top: -16%; width: 2px; height: 12px; border-radius: 2px;
   background: linear-gradient(to bottom, rgba(56,200,255,0), rgba(56,200,255,.85));
   animation: tdrop linear infinite; }
-@keyframes tdrop { 0% { transform: translateY(-20%); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(420%); opacity: 0; } }
+@keyframes tdrop { 0% { transform: translateY(-20%); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(440%); opacity: 0; } }
+/* diagonal rain — streams in from the top-right toward the bottom-left */
+.t-rain-diag i { transform: rotate(18deg); animation-name: tdropdiag; }
+@keyframes tdropdiag { 0% { transform: translate(40%, -30%) rotate(18deg); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(-60%, 460%) rotate(18deg); opacity: 0; } }
+/* drifting fog bands */
+.t-fog { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.t-fog span { position: absolute; left: -40%; width: 60%; height: 16px; border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent); animation: tfog linear infinite; }
+@keyframes tfog { 0% { transform: translateX(0); } 100% { transform: translateX(240%); } }
 /* gentle bob for the sun / cloud glyph */
 .t-wx-float { animation: twxfloat 3.2s ease-in-out infinite; }
 @keyframes twxfloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 /* sun rays pulse */
 .t-wx-sun { animation: twxsun 4s ease-in-out infinite; transform-origin: center; }
 @keyframes twxsun { 0%,100% { transform: rotate(0) scale(1); } 50% { transform: rotate(20deg) scale(1.06); } }
-@media (prefers-reduced-motion: reduce) { .t-rain i, .t-wx-float, .t-wx-sun { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .t-rain i, .t-wx-float, .t-wx-sun, .t-fog span { animation: none; } }
 
 /* responsive form grid */
 .t-form-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; }

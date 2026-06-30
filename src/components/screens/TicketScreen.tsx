@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { QrCode } from "@/components/ui/QrCode";
 import { useToast } from "@/components/providers/toast";
 import { fmtDateShort, slotRange } from "@/lib/format";
+import { bookingPhase } from "@/lib/booking-state";
 import type { Booking } from "@/lib/types";
 
 export function TicketScreen({ booking: b, turfName, area, token }: { booking: Booking; turfName: string; area: string; token: string }) {
@@ -21,6 +22,8 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
   }, [token]);
 
   const checkedIn = !!b.checkedInAt;
+  const phase = bookingPhase(b.dateKey ?? null, b.startHour ?? null, b.durationHrs ?? 1, b.status, checkedIn);
+  const missed = phase === "missed";
 
   async function addToWallet() {
     // Pick the wallet that fits the device: Apple Wallet on iOS, Google Wallet elsewhere.
@@ -87,6 +90,14 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
                   <Badge variant="negative">Cancelled</Badge>
                   <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", margin: "10px 0 0" }}>This booking was cancelled and can&apos;t be used for entry.</p>
                 </div>
+              ) : missed ? (
+                <div style={{ textAlign: "center", padding: "20px 0" }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--color-negative-pale)", display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+                    <Icon name="x" size={32} color="var(--color-negative)" stroke={2.6} />
+                  </div>
+                  <Display size={20} style={{ marginBottom: 4 }}>Missed</Display>
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--color-mute)", margin: 0 }}>This slot has ended and wasn&apos;t checked in. Book again to play.</p>
+                </div>
               ) : (
                 <>
                   <div style={{ padding: 12, background: "#fff", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)" }}>
@@ -100,7 +111,7 @@ export function TicketScreen({ booking: b, turfName, area, token }: { booking: B
             </div>
 
             {/* wallet */}
-            {!checkedIn && b.status !== "cancelled" && (
+            {!checkedIn && b.status !== "cancelled" && !missed && (
               <div style={{ marginTop: 20 }}>
                 <Button variant="tertiary" fullWidth disabled={walletBusy} onClick={addToWallet} iconLeft={<Icon name="wallet" size={17} />}>
                   {walletBusy ? "Opening…" : "Add to wallet"}

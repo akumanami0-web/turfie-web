@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTournaments } from "@/lib/tournaments";
+import { slotRange } from "@/lib/format";
 import { StaffScreen } from "@/components/screens/StaffScreen";
 
 export const metadata = { title: "Turfie Admin — Team" };
@@ -31,7 +32,8 @@ export default async function Page() {
   }));
   const bookings = bookingsRaw.map((b) => ({
     id: b.id, who: b.user?.fullName || b.contactName || "Guest", turf: turfName.get(b.turfId) || b.turfId,
-    dateLabel: b.dateLabel, time: b.time, price: b.price, status: b.status,
+    dateLabel: b.dateLabel, time: slotRange(b.startHour, b.durationHrs) || b.time, price: b.price, status: b.status,
+    dateKey: b.dateKey, startHour: b.startHour, durationHrs: b.durationHrs, checkedIn: !!b.checkedInAt, rescheduledAt: !!b.rescheduledAt,
   }));
 
   const kpis = { players: playerCount, bookings: bookingCount, revenue: revenueAgg._sum.price || 0, tournaments: tournaments.length };

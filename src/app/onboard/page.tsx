@@ -31,6 +31,7 @@ export default async function Page() {
     status: b.status,
     checkedIn: !!b.checkedInAt,
     isToday: b.dateKey === todayKey,
+    dateKey: b.dateKey, startHour: b.startHour, durationHrs: b.durationHrs,
     players: b.players,
     rescheduledAt: b.rescheduledAt ? b.rescheduledAt.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null,
     prevDateLabel: b.prevDateLabel,

@@ -16,3 +16,10 @@ export function istEpoch(dateKey: string, hour: number): number {
 export function istDate(dateKey: string, hour: number): Date {
   return new Date(istEpoch(dateKey, hour));
 }
+
+/** True if the slot's start instant is already in the past. */
+export function slotIsPast(dateKey: string | null, hour: number | null, now: number = Date.now()): boolean {
+  if (!dateKey || hour == null) return false;
+  const t = istEpoch(dateKey, hour);
+  return !Number.isNaN(t) && t <= now;
+}

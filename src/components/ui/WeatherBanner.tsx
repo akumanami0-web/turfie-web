@@ -1,12 +1,14 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Container } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
-import { RainOverlay, WeatherGlyph, type Glyph } from "@/components/ui/Weather";
+import { RainOverlay, FogOverlay, WeatherGlyph, type Glyph } from "@/components/ui/Weather";
 
 type Now = { tempC: number; label: string; rain: boolean; glyph: Glyph };
 
 export function WeatherBanner() {
+  const router = useRouter();
   const [now, setNow] = useState<Now | null>(null);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function WeatherBanner() {
     <section style={{ background: "var(--color-canvas)", padding: "0 0 8px" }}>
       <Container>
         <div style={{ position: "relative", overflow: "hidden", background: bg, borderRadius: "var(--radius-xl)", padding: "22px 26px", display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", border: wet ? "none" : "1px solid var(--color-ink)" }}>
-          {wet && <RainOverlay count={20} />}
+          {wet && <><RainOverlay count={26} diagonal /><FogOverlay count={4} /></>}
           <div style={{ position: "relative", zIndex: 1, width: 64, height: 64, borderRadius: "var(--radius-lg)", background: wet ? "rgba(255,255,255,.08)" : "var(--color-canvas)", display: "grid", placeItems: "center", flexShrink: 0 }}>
             <WeatherGlyph glyph={now.glyph} size={42} />
           </div>
@@ -44,9 +46,9 @@ export function WeatherBanner() {
             <p style={{ fontFamily: "var(--font-body)", fontSize: 14.5, lineHeight: 1.5, color: sub, margin: "5px 0 0", maxWidth: 620 }}>{body}</p>
           </div>
           {wet && (
-            <div style={{ position: "relative", zIndex: 1, display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: "var(--radius-pill)", background: "var(--color-primary)", color: "var(--color-ink-deep)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, flexShrink: 0 }}>
+            <button onClick={() => router.push("/account/bookings")} style={{ position: "relative", zIndex: 1, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: "var(--radius-pill)", background: "var(--color-primary)", color: "var(--color-ink-deep)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, flexShrink: 0, border: "none", cursor: "pointer" }}>
               <Icon name="refresh" size={15} color="var(--color-ink-deep)" /> Free reschedule
-            </div>
+            </button>
           )}
         </div>
       </Container>

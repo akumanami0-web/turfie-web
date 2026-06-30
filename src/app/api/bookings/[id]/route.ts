@@ -7,7 +7,7 @@ import { refundQuote } from "@/lib/content";
 import { rescheduleStatus, recordReschedule } from "@/lib/reschedule";
 import { adjustWallet } from "@/lib/wallet-balance";
 import { slotRange } from "@/lib/format";
-import { istDate } from "@/lib/tz";
+import { istDate, slotIsPast } from "@/lib/tz";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +21,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const body = await req.json().catch(() => ({}));
   const action = String(body.action || "");
+
+  if (existing.checkedInAt && (action === "cancel" || action === "reschedule")) {
+    return NextResponse.json({ error: "This pass has already been used — it can't be changed." }, { status: 409 });
+  }
 
   if (action === "cancel") {
     const q = refundQuote(existing.kickoffAt ? existing.kickoffAt.getTime() : null);
@@ -46,11 +50,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (action === "reschedule") {
+    const newDateKey = body.dateKey ?? existing.dateKey;
+    const newStartHour = body.startHour != null ? Number(body.startHour) : existing.startHour;
+    if (slotIsPast(newDateKey, newStartHour)) {
+      return NextResponse.json({ error: "You can't move a booking to a time that's already passed." }, { status: 400 });
+    }
     const owner = await getLockOwner();
     const status = await rescheduleStatus(owner);
     await recordReschedule(owner);
-    const newDateKey = body.dateKey ?? existing.dateKey;
-    const newStartHour = body.startHour != null ? Number(body.startHour) : existing.startHour;
     const updated = await prisma.booking.update({
       where: { id },
       data: {

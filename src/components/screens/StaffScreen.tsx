@@ -8,12 +8,14 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
 import { useSession } from "@/components/providers/session";
-import { inr, inrK, fmtDateShort, fmtHour } from "@/lib/format";
+import { inr, inrK, fmtDateShort, fmtHour, slotRange } from "@/lib/format";
 import { SPORTS } from "@/lib/content";
+import { bookingPhase, PHASE_LABEL, type Phase } from "@/lib/booking-state";
+import { slotIsPast } from "@/lib/tz";
 import type { TournamentView } from "@/lib/tournaments";
 
 type SUser = { id: string; name: string; email: string; phone: string | null; role: string; phoneVerified: boolean; joined: string; bookings: number; initials: string; photoUrl: string | null; suspended: boolean };
-type SBooking = { id: string; who: string; turf: string; dateLabel: string; time: string; price: number; status: string };
+type SBooking = { id: string; who: string; turf: string; dateLabel: string; time: string; price: number; status: string; dateKey?: string | null; startHour?: number | null; durationHrs?: number; checkedIn?: boolean; rescheduledAt?: boolean };
 type STurf = { id: string; name: string; area: string; ownerId: string | null };
 type Kpis = { players: number; bookings: number; revenue: number; tournaments: number };
 
@@ -25,6 +27,17 @@ function statusBadge(s: string) {
   if (s === "upcoming" || s === "live") return <Badge variant="positive">{s}</Badge>;
   if (s === "cancelled") return <Badge variant="negative">cancelled</Badge>;
   return <Badge variant="neutral">{s}</Badge>;
+}
+
+function phaseBadge(p: Phase) {
+  if (p === "upcoming") return <Badge variant="positive">Upcoming</Badge>;
+  if (p === "checkedin") return <Badge variant="brand">Checked in</Badge>;
+  if (p === "cancelled") return <Badge variant="negative">Cancelled</Badge>;
+  return <Badge variant="neutral">Completed</Badge>; // completed + missed
+}
+
+function bookingRowPhase(b: { dateKey?: string | null; startHour?: number | null; durationHrs?: number; status: string; checkedIn?: boolean }): Phase {
+  return bookingPhase(b.dateKey ?? null, b.startHour ?? null, b.durationHrs ?? 1, b.status, !!b.checkedIn);
 }
 
 function UserRow({ u, onDetails }: { u: SUser; onDetails: () => void }) {
@@ -209,15 +222,18 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
                 <thead><tr>{["ID", "Player", "Turf", "When", "Amount", "Status", ""].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {bookings.map((b) => (
+                  {bookings.map((b) => {
+                    const ph = bookingRowPhase(b);
+                    return (
                     <tr key={b.id} onClick={() => setBookingId(b.id)} style={{ borderTop: "1px solid var(--border-subtle)", cursor: "pointer" }}>
-                      <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}</td>
+                      <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}{b.rescheduledAt ? <Icon name="refresh" size={13} color="var(--color-warning-deep)" style={{ marginLeft: 6, verticalAlign: "middle" }} /> : null}</td>
                       <td style={cell}>{b.who}</td><td style={cell}>{b.turf}</td>
                       <td style={cell}>{b.dateLabel} · {b.time}</td><td style={cell}>{inr(b.price)}</td>
-                      <td style={cell}>{statusBadge(b.status)}</td>
-                      <td style={{ ...cell, textAlign: "right" }}>{b.status !== "cancelled" && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelBooking(b); }}>Cancel</Button>}</td>
+                      <td style={cell}>{phaseBadge(ph)}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{ph === "upcoming" && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelBooking(b); }}>Cancel</Button>}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -257,7 +273,7 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
           <TurfEditModal turfId={editTurfId} onClose={() => setEditTurfId(null)} onSaved={(name, area) => setTurfs((p) => p.map((t) => (t.id === editTurfId ? { ...t, name, area } : t)))} />
         )}
 
-        {bookingId && <BookingModal bookingId={bookingId} onClose={() => setBookingId(null)} />}
+        {bookingId && <BookingModal bookingId={bookingId} onClose={() => setBookingId(null)} onChanged={(patch) => setBookings((p) => p.map((x) => (x.id === bookingId ? { ...x, ...patch } : x)))} />}
       </Container>
     </div>
   );
@@ -266,7 +282,7 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
 /* ── Booking details popup ── */
 type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateKey: string | null; startHour: number | null; durationHrs: number; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean; rescheduledAt: string | null; prevDateLabel: string | null; prevTime: string | null };
 
-function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; onClose: () => void; onChanged?: () => void }) {
+function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; onClose: () => void; onChanged?: (patch: Partial<SBooking>) => void }) {
   const toast = useToast();
   const [b, setB] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,6 +291,7 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
   const [dateKey, setDateKey] = useState("");
   const [hour, setHour] = useState("");
   const [durationHrs, setDurationHrs] = useState("1");
+  const [chargeLink, setChargeLink] = useState<string | null>(null);
 
   React.useEffect(() => {
     let off = false;
@@ -288,21 +305,31 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
   }, [bookingId]);
 
   const today = new Date().toISOString().slice(0, 10);
+  // Hide hours already in the past for the chosen date.
+  const hourOpts = Array.from({ length: 18 }, (_, i) => i + 6).filter((h) => !slotIsPast(dateKey, h)).map((h) => ({ value: String(h), label: fmtHour(h) }));
+  const phase: Phase | null = b ? bookingPhase(b.dateKey, b.startHour, b.durationHrs, b.status, b.checkedIn) : null;
 
-  async function saveReschedule() {
+  async function saveReschedule(mode: "free" | "charge") {
     if (!b) return;
     if (!dateKey || hour === "") { toast("Pick a date and start time", "warning"); return; }
     setBusy(true);
-    const res = await fetch(`/api/staff/bookings/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reschedule", dateKey, startHour: Number(hour), durationHrs: Number(durationHrs) }) });
+    const res = await fetch(`/api/staff/bookings/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reschedule", mode, dateKey, startHour: Number(hour), durationHrs: Number(durationHrs) }) });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) { toast(data.error || "Couldn't reschedule", "error"); return; }
+    if (data.charged) {
+      // No free reschedules left — a pay link was generated (and sent if possible).
+      setChargeLink(data.link);
+      const where = [data.sent?.email && "email", data.sent?.whatsapp && "WhatsApp"].filter(Boolean).join(" & ");
+      toast(where ? `Payment link sent via ${where}` : "Payment link ready — copy it to the player");
+      return;
+    }
     const u = data.booking;
     setB({ ...b, dateKey: u.dateKey, dateLabel: u.dateLabel, time: u.time, duration: u.duration, startHour: u.startHour, durationHrs: u.durationHrs, status: u.status,
       rescheduledAt: "just now", prevDateLabel: b.dateLabel, prevTime: b.time });
     setResched(false);
-    onChanged?.();
-    toast("Booking rescheduled");
+    onChanged?.({ dateLabel: u.dateLabel, time: u.time, status: u.status, startHour: u.startHour, durationHrs: u.durationHrs, dateKey: u.dateKey, rescheduledAt: true });
+    toast(typeof data.freeLeft === "number" ? `Rescheduled — ${data.freeLeft} free left for this player` : "Booking rescheduled");
   }
 
   return (
@@ -311,12 +338,12 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
         <div style={{ padding: "30px 0", textAlign: "center", fontFamily: "var(--font-body)", color: "var(--color-mute)" }}>Loading…</div>
       ) : (
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, paddingRight: 40 }}>
             <div>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-mute)" }}>Booking</div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22 }}>{b.id}</div>
             </div>
-            {b.checkedIn ? <Badge variant="positive">Checked in</Badge> : statusBadge(b.status)}
+            {phase && phaseBadge(phase)}
           </div>
 
           {/* booked by */}
@@ -334,6 +361,14 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
             ))}
           </div>
 
+          {/* Missed banner — slot ended without a check-in */}
+          {phase === "missed" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 13px", marginTop: 14, background: "var(--color-negative-pale)", borderRadius: "var(--radius-md)" }}>
+              <Icon name="x" size={16} color="var(--color-negative)" />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-negative-deep)" }}>Missed — the slot ended and the player never checked in.</span>
+            </div>
+          )}
+
           {/* Rescheduled banner */}
           {b.rescheduledAt && b.prevDateLabel && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", marginTop: 14, background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)" }}>
@@ -344,20 +379,33 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
             </div>
           )}
 
-          {/* Reschedule (staff override) */}
-          {b.status !== "cancelled" && (
+          {/* charge link result */}
+          {chargeLink && (
+            <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--color-primary-pale)", borderRadius: "var(--radius-md)" }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Payment link (₹50) — sent to the player. It applies automatically once paid.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Input value={chargeLink} readOnly style={{ fontSize: 12 }} />
+                <Button size="sm" variant="tertiary" onClick={() => { navigator.clipboard?.writeText(chargeLink); toast("Link copied"); }}>Copy</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Reschedule (staff) — blocked once checked in */}
+          {phase !== "cancelled" && !b.checkedIn && (
             resched ? (
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
                 <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Reschedule booking</div>
                 <div className="t-form-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><span style={labelCss}>New date</span><DatePicker value={dateKey} onChange={setDateKey} min={today} future /></div>
-                  <div><span style={labelCss}>Start time</span><Dropdown value={hour} onChange={setHour} placeholder="Select" options={Array.from({ length: 18 }, (_, i) => i + 6).map((h) => ({ value: String(h), label: fmtHour(h) }))} /></div>
+                  <div><span style={labelCss}>New date</span><DatePicker value={dateKey} onChange={(v) => { setDateKey(v); setHour(""); }} min={today} future /></div>
+                  <div><span style={labelCss}>Start time</span><Dropdown value={hour} onChange={setHour} placeholder="Select" options={hourOpts} /></div>
                   <div><span style={labelCss}>Duration</span><Dropdown value={durationHrs} onChange={setDurationHrs} options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: `${n} hr` }))} /></div>
                 </div>
                 <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-                  <Button variant="tertiary" fullWidth onClick={() => setResched(false)}>Cancel</Button>
-                  <Button fullWidth disabled={busy} onClick={saveReschedule} iconRight={<Icon name="check" size={17} />}>{busy ? "Saving…" : "Save new time"}</Button>
+                  <Button variant="tertiary" fullWidth disabled={busy} onClick={() => saveReschedule("free")} iconLeft={<Icon name="refresh" size={16} />}>{busy ? "…" : "Reschedule free"}</Button>
+                  <Button fullWidth disabled={busy} onClick={() => saveReschedule("charge")} iconRight={<Icon name="wallet" size={16} />}>{busy ? "…" : "Charge ₹50"}</Button>
                 </div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 11.5, color: "var(--color-mute)", marginTop: 8 }}>Free uses one of the player&apos;s free reschedules. Charge sends them a ₹50 payment link (auto-applies once paid) if none are left.</div>
+                <button onClick={() => setResched(false)} style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--color-mute)" }}>← Back</button>
               </div>
             ) : (
               <Button variant="tertiary" fullWidth style={{ marginTop: 18 }} onClick={() => setResched(true)} iconLeft={<Icon name="calendar" size={16} />}>Reschedule booking</Button>
@@ -370,7 +418,7 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
 }
 
 /* ── Player details popup ── */
-type PlayerDetail = { id: string; name: string; email: string; phone: string | null; phoneVerified: boolean; role: string; city: string; level: string; gender: string | null; birthday: string | null; initials: string; photoUrl: string | null; suspended: boolean; walletBalance: number; joined: string };
+type PlayerDetail = { id: string; name: string; email: string; phone: string | null; phoneVerified: boolean; role: string; city: string; level: string; gender: string | null; birthday: string | null; initials: string; photoUrl: string | null; suspended: boolean; walletBalance: number; freeReschedules: number; joined: string };
 type PlayerBooking = { id: string; turf: string; when: string; status: string; price: number };
 
 function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { userId: string; onClose: () => void; onRole: (id: string, role: string) => void; onSuspend: (id: string, suspended: boolean) => void; onRequestDelete: (u: { id: string; name: string }) => void }) {
@@ -428,6 +476,17 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
     toast(sign > 0 ? `Added ${inr(amt)} to wallet` : `Deducted ${inr(amt)} from wallet`);
   }
 
+  async function adjustFree(sign: 1 | -1) {
+    if (!d) return;
+    setBusy(true);
+    const res = await fetch(`/api/staff/users/${d.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ freeReschedDelta: sign }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { toast("Couldn't update", "error"); return; }
+    if (typeof data.freeReschedules === "number") setD({ ...d, freeReschedules: data.freeReschedules });
+    toast(sign > 0 ? "Added a free reschedule" : "Deducted a free reschedule");
+  }
+
   const upcoming = bookings.filter((b) => b.status === "upcoming");
   const history = bookings.filter((b) => b.status !== "upcoming");
 
@@ -475,6 +534,21 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
               <div style={{ flex: 1 }}><Input type="number" placeholder="Amount" value={walletAmt} onChange={(e) => setWalletAmt(e.target.value)} /></div>
               <Button size="sm" variant="tertiary" disabled={busy} onClick={() => adjustWallet(1)}>Add</Button>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => adjustWallet(-1)}>Deduct</Button>
+            </div>
+          </div>
+
+          {/* Free reschedules */}
+          <div style={{ background: "var(--color-canvas-soft)", borderRadius: "var(--radius-lg)", padding: "14px 16px", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14 }}>Free reschedules left</div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--color-mute)" }}>This month · max 5</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Button size="sm" variant="ghost" disabled={busy || d.freeReschedules <= 0} onClick={() => adjustFree(-1)}>−</Button>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, minWidth: 22, textAlign: "center" }}>{d.freeReschedules}</span>
+                <Button size="sm" variant="tertiary" disabled={busy || d.freeReschedules >= 5} onClick={() => adjustFree(1)}>+</Button>
+              </div>
             </div>
           </div>
 
