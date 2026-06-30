@@ -153,6 +153,21 @@ input::placeholder, textarea::placeholder { color: var(--color-mute); }
 @keyframes tskelfade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .t-skel-page { animation-delay: 0s; } }
 
+/* ── weather animations (brand-kit) ── */
+/* falling rain droplets used on rainy booking slots + the home banner */
+.t-rain { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.t-rain i { position: absolute; top: -14%; width: 2px; height: 12px; border-radius: 2px;
+  background: linear-gradient(to bottom, rgba(56,200,255,0), rgba(56,200,255,.85));
+  animation: tdrop linear infinite; }
+@keyframes tdrop { 0% { transform: translateY(-20%); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(420%); opacity: 0; } }
+/* gentle bob for the sun / cloud glyph */
+.t-wx-float { animation: twxfloat 3.2s ease-in-out infinite; }
+@keyframes twxfloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+/* sun rays pulse */
+.t-wx-sun { animation: twxsun 4s ease-in-out infinite; transform-origin: center; }
+@keyframes twxsun { 0%,100% { transform: rotate(0) scale(1); } 50% { transform: rotate(20deg) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .t-rain i, .t-wx-float, .t-wx-sun { animation: none; } }
+
 /* responsive form grid */
 .t-form-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; }
 .t-display { overflow-wrap: break-word; }

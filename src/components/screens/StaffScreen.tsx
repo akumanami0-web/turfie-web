@@ -263,17 +263,45 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
 }
 
 /* ── Booking details popup ── */
-type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean };
+type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateKey: string | null; startHour: number | null; durationHrs: number; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean };
 
-function BookingModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
+function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; onClose: () => void; onChanged?: () => void }) {
+  const toast = useToast();
   const [b, setB] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resched, setResched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [dateKey, setDateKey] = useState("");
+  const [hour, setHour] = useState("");
+  const [durationHrs, setDurationHrs] = useState("1");
 
   React.useEffect(() => {
     let off = false;
-    fetch(`/api/staff/bookings/${bookingId}`).then((r) => r.json()).then((data) => { if (!off) { setB(data.booking || null); setLoading(false); } }).catch(() => setLoading(false));
+    fetch(`/api/staff/bookings/${bookingId}`).then((r) => r.json()).then((data) => {
+      if (off) return;
+      const bk: BookingDetail | null = data.booking || null;
+      setB(bk); setLoading(false);
+      if (bk) { setDateKey(bk.dateKey || ""); setHour(bk.startHour != null ? String(bk.startHour) : ""); setDurationHrs(String(bk.durationHrs || 1)); }
+    }).catch(() => setLoading(false));
     return () => { off = true; };
   }, [bookingId]);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function saveReschedule() {
+    if (!b) return;
+    if (!dateKey || hour === "") { toast("Pick a date and start time", "warning"); return; }
+    setBusy(true);
+    const res = await fetch(`/api/staff/bookings/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reschedule", dateKey, startHour: Number(hour), durationHrs: Number(durationHrs) }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { toast(data.error || "Couldn't reschedule", "error"); return; }
+    const u = data.booking;
+    setB({ ...b, dateKey: u.dateKey, dateLabel: u.dateLabel, time: u.time, duration: u.duration, startHour: u.startHour, durationHrs: u.durationHrs, status: u.status });
+    setResched(false);
+    onChanged?.();
+    toast("Booking rescheduled");
+  }
 
   return (
     <ModalShell onClose={onClose} maxWidth={460}>
@@ -303,6 +331,26 @@ function BookingModal({ bookingId, onClose }: { bookingId: string; onClose: () =
               <div key={l}><div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--color-mute)" }}>{l}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{v}</div></div>
             ))}
           </div>
+
+          {/* Reschedule (staff override) */}
+          {b.status !== "cancelled" && (
+            resched ? (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Reschedule booking</div>
+                <div className="t-form-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div><span style={labelCss}>New date</span><DatePicker value={dateKey} onChange={setDateKey} min={today} future /></div>
+                  <div><span style={labelCss}>Start time</span><Dropdown value={hour} onChange={setHour} placeholder="Select" options={Array.from({ length: 18 }, (_, i) => i + 6).map((h) => ({ value: String(h), label: fmtHour(h) }))} /></div>
+                  <div><span style={labelCss}>Duration</span><Dropdown value={durationHrs} onChange={setDurationHrs} options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: `${n} hr` }))} /></div>
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                  <Button variant="tertiary" fullWidth onClick={() => setResched(false)}>Cancel</Button>
+                  <Button fullWidth disabled={busy} onClick={saveReschedule} iconRight={<Icon name="check" size={17} />}>{busy ? "Saving…" : "Save new time"}</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="tertiary" fullWidth style={{ marginTop: 18 }} onClick={() => setResched(true)} iconLeft={<Icon name="calendar" size={16} />}>Reschedule booking</Button>
+            )
+          )}
         </div>
       )}
     </ModalShell>
@@ -604,10 +652,26 @@ function TurfEditModal({ turfId, onClose, onSaved }: { turfId: string; onClose: 
   }, [turfId]);
 
   const set = (k: string, v: string) => setForm((f) => (f ? { ...f, [k]: v } : f));
+  // Keyboard entry ignores the input's min/max, so clamp numeric fields to their
+  // bounds when the user leaves the field (cursor steppers respect min/max already).
+  const clampField = (k: string, min?: number, max?: number) => {
+    setForm((f) => {
+      if (!f || f[k] === "") return f;
+      let n = Math.round(Number(f[k]));
+      if (Number.isNaN(n)) return { ...f, [k]: "" };
+      if (min != null) n = Math.max(min, n);
+      if (max != null) n = Math.min(max, n);
+      return { ...f, [k]: String(n) };
+    });
+  };
 
   async function save() {
     if (!form) return;
     if (!form.name.trim()) { toast("Name is required", "warning"); return; }
+    // Closing time must be after opening time.
+    if (form.openH !== "" && form.closeH !== "" && Number(form.closeH) <= Number(form.openH)) {
+      toast("Closing time must be after opening time.", "warning"); return;
+    }
     setBusy(true);
     const res = await fetch(`/api/staff/turfs/${turfId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, popular }) });
     const data = await res.json().catch(() => ({}));
@@ -629,7 +693,9 @@ function TurfEditModal({ turfId, onClose, onSaved }: { turfId: string; onClose: 
             {TEXT_FIELDS.map(([k, label, num, min, max]) => (
               <div key={k} style={{ minWidth: 0 }}>
                 <span style={labelCss}>{label}</span>
-                <Input type={num ? "number" : "text"} min={num ? min : undefined} max={num ? max : undefined} value={form[k]} onChange={(e) => set(k, e.target.value)} />
+                <Input type={num ? "number" : "text"} min={num ? min : undefined} max={num ? max : undefined} value={form[k]}
+                  onChange={(e) => set(k, num ? e.target.value.replace(/[^0-9-]/g, "") : e.target.value)}
+                  onBlur={num ? () => clampField(k, min, max) : undefined} />
               </div>
             ))}
           </div>

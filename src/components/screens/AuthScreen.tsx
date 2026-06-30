@@ -6,6 +6,7 @@ import { Display, Eyebrow, AvatarStack } from "@/components/ui/layout-bits";
 import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { useSession } from "@/components/providers/session";
 import { useToast } from "@/components/providers/toast";
+import { PW_RULES, validatePassword, passwordUsesIdentity } from "@/lib/password";
 import type { SessionUser } from "@/lib/types";
 
 const OAUTH_ERRORS: Record<string, string> = {
@@ -23,12 +24,13 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [code, setCode] = useState("");
   const [simulated, setSimulated] = useState(false);
   useEffect(() => setTab(mode), [mode]);
-  useEffect(() => { setAwaitingCode(false); setCode(""); }, [tab]);
+  useEffect(() => { setAwaitingCode(false); setCode(""); setConfirm(""); }, [tab]);
   // surface ?error= from an OAuth callback failure
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get("error");
@@ -44,6 +46,12 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isLogin) {
+      // Signup: enforce the password policy + matching confirmation client-side.
+      const pw = validatePassword(password);
+      if (!pw.ok) { toast("Please meet all the password requirements.", "error"); return; }
+      if (password !== confirm) { toast("Passwords don't match.", "error"); return; }
+    }
     setBusy(true);
     if (isLogin) {
       const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
@@ -114,6 +122,39 @@ export function AuthScreen({ mode = "login" }: { mode?: "login" | "signup" }) {
               {!isLogin && <Input label="Name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />}
               <Input label="Email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+
+              {!isLogin && password.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 14px", marginTop: -4 }}>
+                  {PW_RULES.map((r) => {
+                    const ok = r.test(password);
+                    return (
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: "var(--font-body)", fontSize: 12.5, color: ok ? "var(--color-positive-deep, var(--color-ink))" : "var(--color-mute)" }}>
+                        <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: ok ? "var(--color-primary)" : "var(--color-canvas-soft)", border: ok ? "none" : "1.5px solid var(--border-subtle)" }}>
+                          {ok && <Icon name="check" size={11} color="var(--color-ink-deep)" stroke={3} />}
+                        </span>
+                        {r.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!isLogin && passwordUsesIdentity(password, name, "") && (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", background: "var(--color-warning-pale)", border: "1px solid var(--color-warning, #e0a800)", borderRadius: "var(--radius-md)" }}>
+                  <Icon name="shield" size={16} color="var(--color-warning-deep)" />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-warning-content)", lineHeight: 1.45 }}>
+                    Heads up — avoid using your name or phone number in your password. It&apos;s only our advice, not a requirement.
+                  </span>
+                </div>
+              )}
+
+              {!isLogin && (
+                <>
+                  <Input label="Confirm password" type="password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                    error={confirm.length > 0 && confirm !== password ? "Passwords don't match" : undefined} />
+                </>
+              )}
+
               {isLogin && <button type="button" onClick={() => toast("Reset link sent")} style={{ alignSelf: "flex-end", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, fontWeight: 600, color: "var(--color-ink)" }}>Forgot password?</button>}
               <Button type="submit" fullWidth size="lg" disabled={busy} iconRight={<Icon name="arrowRight" size={18} />}>{busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}</Button>
             </form>

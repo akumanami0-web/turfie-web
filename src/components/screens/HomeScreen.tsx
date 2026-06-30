@@ -6,6 +6,7 @@ import { Container, Display, Eyebrow, Avatar, Stars } from "@/components/ui/layo
 import { Icon, SportGlyph } from "@/components/ui/Icon";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { TurfCard } from "@/components/ui/TurfCard";
+import { WeatherBanner } from "@/components/ui/WeatherBanner";
 import { SPORTS, FEATURES, STEPS, TESTIMONIALS, AREAS } from "@/lib/content";
 import { nextDays } from "@/lib/format";
 import type { Turf } from "@/lib/types";
@@ -83,6 +84,11 @@ export function HomeScreen({ popular }: { popular: Turf[] }) {
             <div style={{ display: "flex", justifyContent: "flex-end" }}><HeroWidget /></div>
           </div>
         </Container>
+      </section>
+
+      {/* Weather — below the turf finder */}
+      <section style={{ background: "var(--color-canvas)", paddingTop: 24 }}>
+        <WeatherBanner />
       </section>
 
       {/* Feature strip */}

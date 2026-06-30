@@ -12,6 +12,7 @@ type TurfRow = Awaited<ReturnType<typeof prisma.turf.findFirst>>;
 export function rowToTurf(r: NonNullable<TurfRow>): Turf {
   return {
     id: r.id,
+    ownerId: r.ownerId,
     name: r.name,
     kind: r.kind,
     sports: r.sports.split(",").filter(Boolean) as SportId[],

@@ -2,6 +2,7 @@ export type SportId = "football" | "cricket" | "pickleball" | "badminton" | "ten
 
 export type Turf = {
   id: string;
+  ownerId?: string | null;
   name: string;
   kind: string;
   sports: SportId[];

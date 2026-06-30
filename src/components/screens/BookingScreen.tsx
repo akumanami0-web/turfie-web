@@ -5,6 +5,7 @@ import { Button, Card, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/providers/toast";
+import { RainOverlay } from "@/components/ui/Weather";
 import { turfHours, turfFields } from "@/lib/turf-utils";
 import { nextDays, fmtHour, hourRange, inr, mmss } from "@/lib/format";
 import type { Turf } from "@/lib/types";
@@ -46,6 +47,7 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
   const [players, setPlayers] = useState(defaultTeam);
   const [taken, setTaken] = useState<number[]>([]);
   const [held, setHeld] = useState<{ hour: number; until: number }[]>([]);
+  const [rainByHour, setRainByHour] = useState<Record<string, number>>({});
   const [, setTick] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,22 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
   }, [t.id, field, date]);
 
   useEffect(() => { setStart(null); fetchAvail(); }, [field, date, fetchAvail]);
+
+  // Weather forecast for this turf (rain droplets on rainy slots).
+  useEffect(() => {
+    let off = false;
+    fetch(`/api/weather?lat=${t.lat}&lng=${t.lng}`)
+      .then((r) => r.json())
+      .then((d) => { if (!off && d.ok) setRainByHour(d.forecast.rainByHour || {}); })
+      .catch(() => {});
+    return () => { off = true; };
+  }, [t.lat, t.lng]);
+
+  // Chance of rain (0–100) for a given hour on the selected date; -1 if unknown.
+  const rainAt = useCallback((h: number) => {
+    const key = `${date}T${String(h).padStart(2, "0")}`;
+    return key in rainByHour ? rainByHour[key] : -1;
+  }, [date, rainByHour]);
   useEffect(() => {
     const tick = setInterval(() => setTick((n) => n + 1), 1000);
     const poll = setInterval(fetchAvail, 8000);
@@ -198,6 +216,7 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
                   <Lgnd c="var(--color-ink)" label="Selected" />
                   <Lgnd c="var(--color-warning-pale)" label="Held" />
                   <Lgnd c="var(--color-canvas-soft)" label="Booked" />
+                  <Lgnd c="var(--color-canvas)" b="#38c8ff" label="Rain likely" />
                 </div>
               </div>
               <div className="t-slot-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 10 }}>
@@ -214,12 +233,17 @@ export function BookingScreen({ turf: t }: { turf: Turf }) {
                   else if (other) { bg = "var(--color-warning-pale)"; col = "var(--color-warning-deep)"; bd = "transparent"; }
                   else if (isTaken) { bg = "var(--color-canvas-soft)"; col = "var(--color-mute)"; bd = "transparent"; dec = "line-through"; }
                   else if (blocked) { bg = "var(--color-canvas)"; col = "var(--color-mute)"; bd = "var(--border-subtle)"; op = 0.5; }
+                  // Rain forecast: flag bookable, non-selected slots with a high chance of rain.
+                  const rain = rainAt(h);
+                  const showRain = rain >= 60 && !isTaken && !other && !on && !blocked;
                   return (
                     <button key={h} disabled={disabled} onClick={() => pick(h)}
-                      title={other ? "Being booked by another player" : isTaken ? "Already booked" : blocked ? "Not enough consecutive time" : ""}
-                      style={{ padding: "11px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, textDecoration: dec, opacity: op, position: "relative", whiteSpace: "nowrap" }}>
-                      {hourRange(h, duration)}
-                      {other && <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2 }}>{mmss(other.until - Date.now())} held</div>}
+                      title={other ? "Being booked by another player" : isTaken ? "Already booked" : blocked ? "Not enough consecutive time" : showRain ? `${rain}% chance of rain` : ""}
+                      style={{ padding: "11px 6px", borderRadius: "var(--radius-md)", border: `1.5px solid ${showRain ? "#38c8ff" : bd}`, background: bg, color: col, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, textDecoration: dec, opacity: op, position: "relative", whiteSpace: "nowrap", overflow: "hidden" }}>
+                      {showRain && <RainOverlay count={7} />}
+                      <span style={{ position: "relative", zIndex: 1 }}>{hourRange(h, duration)}</span>
+                      {other && <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, position: "relative", zIndex: 1 }}>{mmss(other.until - Date.now())} held</div>}
+                      {showRain && <span style={{ position: "absolute", top: 4, right: 5, zIndex: 1, fontSize: 10, fontWeight: 700, color: "#0a8fc2", display: "inline-flex", alignItems: "center", gap: 2 }}>💧{rain}%</span>}
                     </button>
                   );
                 })}

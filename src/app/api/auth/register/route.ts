@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, setSession, getSessionUser, initialsFrom } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { checkEmailOtp, resendConfigured } from "@/lib/otp";
+import { validatePassword } from "@/lib/password";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
@@ -10,8 +11,12 @@ export async function POST(req: Request) {
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const code = String(body.code || "").trim();
-  if (!name || !email || password.length < 6) {
-    return NextResponse.json({ error: "Name, email and a 6+ character password are required." }, { status: 400 });
+  if (!name || !email) {
+    return NextResponse.json({ error: "Name and email are required." }, { status: 400 });
+  }
+  const pw = validatePassword(password);
+  if (!pw.ok) {
+    return NextResponse.json({ error: "Your password doesn't meet the requirements: " + pw.errors.join(", ") + "." }, { status: 400 });
   }
   // Throttle signup abuse: 6 new accounts / hour per IP.
   if (!(await rateLimit(`register:${clientIp(req)}`, 6, 3600))) {

@@ -11,6 +11,7 @@ import { fmtDateShort } from "@/lib/format";
 type Result = {
   id: string; turfName: string; area: string; sport: string; unit: string; field: string;
   dateLabel: string; time: string; duration: string; status: string; checkedInAt: number | null; name?: string | null;
+  eligible?: boolean; reason?: string | null;
 };
 
 function extractToken(text: string): string {
@@ -150,7 +151,9 @@ export function ScanScreen({ embedded = false }: { embedded?: boolean }) {
               </div>
               {result.checkedInAt
                 ? <Badge variant="neutral">Used</Badge>
-                : result.status === "cancelled" ? <Badge variant="negative">Cancelled</Badge> : <Badge variant="positive">Valid</Badge>}
+                : result.status === "cancelled" ? <Badge variant="negative">Cancelled</Badge>
+                : result.eligible === false ? <Badge variant="negative">Not now</Badge>
+                : <Badge variant="positive">Valid</Badge>}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
@@ -166,6 +169,11 @@ export function ScanScreen({ embedded = false }: { embedded?: boolean }) {
               </div>
             ) : result.status === "cancelled" ? (
               <div style={{ padding: "14px 16px", background: "var(--color-negative-pale)", borderRadius: "var(--radius-lg)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-negative-deep)" }}>This booking was cancelled — do not admit.</div>
+            ) : isOperator && result.eligible === false ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "var(--color-negative-pale)", borderRadius: "var(--radius-lg)" }}>
+                <Icon name="x" size={18} color="var(--color-negative)" />
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-negative-deep)" }}>{result.reason || "Check-in isn't open for this pass right now."}</span>
+              </div>
             ) : isOperator ? (
               <Button fullWidth size="lg" disabled={busy} onClick={checkIn} iconRight={<Icon name="check" size={18} />}>{busy ? "Checking in…" : "Check in"}</Button>
             ) : (
