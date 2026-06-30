@@ -176,6 +176,9 @@ model Booking {
   refundPct    Int?
   refundAmount Int?
   cancelledAt  DateTime?
+  rescheduledAt DateTime? // last time this booking was moved
+  prevDateLabel String?   // the date label it was moved from
+  prevTime      String?   // the time it was moved from
   checkedInAt  DateTime? // set when a vendor scans the entry QR
   walletUsed   Int       @default(0) // ₹ paid from Turfie wallet
   createdAt    DateTime  @default(now())

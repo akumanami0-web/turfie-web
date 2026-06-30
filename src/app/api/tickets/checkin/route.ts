@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `This pass is for ${turf?.name || "another venue"} — only that venue can scan it in.` }, { status: 403 });
     }
     if (b.checkedInAt) return NextResponse.json({ ok: true, already: true, checkedInAt: b.checkedInAt.getTime() });
-    const elig = windowState(Date.now(), bookingWindow(b.kickoffAt, b.durationHrs));
+    const elig = windowState(Date.now(), bookingWindow(b.dateKey, b.startHour, b.durationHrs));
     if (!elig.eligible) return NextResponse.json({ error: elig.reason || "Check-in isn't open right now." }, { status: 409 });
     const u = await prisma.booking.update({ where: { id: bookingId }, data: { checkedInAt: new Date() } });
     return NextResponse.json({ ok: true, already: false, checkedInAt: u.checkedInAt!.getTime() });

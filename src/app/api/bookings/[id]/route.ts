@@ -6,6 +6,8 @@ import { rowToBooking } from "@/lib/bookings";
 import { refundQuote } from "@/lib/content";
 import { rescheduleStatus, recordReschedule } from "@/lib/reschedule";
 import { adjustWallet } from "@/lib/wallet-balance";
+import { slotRange } from "@/lib/format";
+import { istDate } from "@/lib/tz";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -47,23 +49,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const owner = await getLockOwner();
     const status = await rescheduleStatus(owner);
     await recordReschedule(owner);
+    const newDateKey = body.dateKey ?? existing.dateKey;
+    const newStartHour = body.startHour != null ? Number(body.startHour) : existing.startHour;
     const updated = await prisma.booking.update({
       where: { id },
       data: {
         dateLabel: String(body.dateLabel || existing.dateLabel),
-        dateKey: body.dateKey ?? existing.dateKey,
+        dateKey: newDateKey,
         time: String(body.time || existing.time),
-        startHour: body.startHour != null ? Number(body.startHour) : existing.startHour,
+        startHour: newStartHour,
         duration: String(body.duration || existing.duration),
         durationHrs: body.durationHrs != null ? Number(body.durationHrs) : existing.durationHrs,
-        kickoffAt:
-          body.dateKey && body.startHour != null
-            ? (() => {
-                const k = new Date(`${body.dateKey}T00:00:00`);
-                k.setHours(k.getHours() + Number(body.startHour));
-                return k;
-              })()
-            : existing.kickoffAt,
+        // Record where it moved from, so dashboards can show the change.
+        rescheduledAt: new Date(),
+        prevDateLabel: existing.dateLabel,
+        prevTime: slotRange(existing.startHour, existing.durationHrs) || existing.time,
+        kickoffAt: newDateKey && newStartHour != null ? istDate(newDateKey, Number(newStartHour)) : existing.kickoffAt,
       },
     });
     return NextResponse.json({ booking: rowToBooking(updated), fee: status.fee });

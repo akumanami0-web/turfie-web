@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     if (isOperator && !isStaff && turf?.ownerId !== viewer!.id) {
       return NextResponse.json({ ok: false, error: `This pass is for ${turf?.name || "another venue"} — only that venue can scan it in.` }, { status: 403 });
     }
-    const w = bookingWindow(b.kickoffAt, b.durationHrs);
+    const w = bookingWindow(b.dateKey, b.startHour, b.durationHrs);
     const elig = windowState(Date.now(), w);
     return NextResponse.json({
       ok: true,

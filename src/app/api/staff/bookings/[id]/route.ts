@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { rowToBooking } from "@/lib/bookings";
 import { getTurf } from "@/lib/turfs";
 import { slotRange, fmtDateShort } from "@/lib/format";
+import { istDate } from "@/lib/tz";
 
 /** Staff: full booking detail for the popup. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -36,6 +37,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       price: b.price,
       status: b.status,
       checkedIn: !!b.checkedInAt,
+      rescheduledAt: b.rescheduledAt ? b.rescheduledAt.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null,
+      prevDateLabel: b.prevDateLabel,
+      prevTime: b.prevTime,
     },
   });
 }
@@ -68,8 +72,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!dateKey || startHour == null) return NextResponse.json({ error: "Pick a date and start time." }, { status: 400 });
     if (startHour < 0 || startHour > 23) return NextResponse.json({ error: "Start time is out of range." }, { status: 400 });
 
-    const kickoffAt = new Date(`${dateKey}T00:00:00`);
-    kickoffAt.setHours(kickoffAt.getHours() + Number(startHour));
     const updated = await prisma.booking.update({
       where: { id },
       data: {
@@ -79,7 +81,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         durationHrs,
         duration: `${durationHrs} hr`,
         time: slotRange(startHour, durationHrs) || existing.time,
-        kickoffAt,
+        kickoffAt: istDate(dateKey, Number(startHour)),
+        rescheduledAt: new Date(),
+        prevDateLabel: existing.dateLabel,
+        prevTime: slotRange(existing.startHour, existing.durationHrs) || existing.time,
         // a moved booking that was already played/cancelled becomes upcoming again
         status: existing.status === "cancelled" ? existing.status : "upcoming",
       },

@@ -209,6 +209,7 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
   const toast = useToast();
   const { setUser } = useSession();
   const [bookings, setBookings] = useState(initialBookings);
+  const [resched, setResched] = useState(reschedule);
   const [filter, setFilter] = useState("all");
   const [modal, setModal] = useState<{ type: "cancel" | "reschedule"; b: Booking } | null>(null);
   const turfMap = useMemo(() => new Map(turfs.map((t) => [t.id, t])), [turfs]);
@@ -233,7 +234,12 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
   async function doReschedule(b: Booking, p: { dateLabel: string; dateKey: string; time: string; startHour: number; duration: string; durationHrs: number }) {
     const updated = await patch(b.id, { action: "reschedule", ...p });
     setModal(null);
-    if (updated) { setBookings((prev) => prev.map((x) => (x.id === b.id ? updated : x))); toast("Booking rescheduled — confirmation sent"); }
+    if (updated) {
+      setBookings((prev) => prev.map((x) => (x.id === b.id ? updated : x)));
+      toast("Booking rescheduled — confirmation sent");
+      // Refresh the free-reschedule counter so it reflects the one just used.
+      fetch("/api/reschedule-status").then((r) => r.json()).then((s) => setResched(s)).catch(() => {});
+    }
   }
 
   return (
@@ -271,7 +277,7 @@ export function BookingsScreen({ initialBookings, turfs, reschedule }: { initial
           <CancelModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} onClose={() => setModal(null)} onConfirm={(method) => doCancel(modal.b, method)} />
         )}
         {modal?.type === "reschedule" && turfMap.get(modal.b.turfId) && (
-          <RescheduleModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} resched={reschedule} onClose={() => setModal(null)} onConfirm={(p) => doReschedule(modal.b, p)} />
+          <RescheduleModal b={modal.b} turf={turfMap.get(modal.b.turfId)!} resched={resched} onClose={() => setModal(null)} onConfirm={(p) => doReschedule(modal.b, p)} />
         )}
       </Container>
     </div>

@@ -1,4 +1,5 @@
 import "server-only";
+import { istEpoch } from "./tz";
 
 // Check-in can happen at most 30 minutes before the slot starts, and never
 // after it has finished. A pass with even 1 minute of play left is still valid.
@@ -7,10 +8,12 @@ const HOUR_MS = 60 * 60 * 1000;
 
 export type CheckinWindow = { opensAt: number | null; closesAt: number | null };
 
-/** Booking: opens 30 min before kickoff, closes when the booked time ends. */
-export function bookingWindow(kickoffAt: Date | null, durationHrs: number): CheckinWindow {
-  if (!kickoffAt) return { opensAt: null, closesAt: null };
-  const start = kickoffAt.getTime();
+/** Booking: opens 30 min before kickoff, closes when the booked time ends.
+    Derived from the IST date + start hour so it's correct on a UTC server. */
+export function bookingWindow(dateKey: string | null, startHour: number | null, durationHrs: number): CheckinWindow {
+  if (!dateKey || startHour == null) return { opensAt: null, closesAt: null };
+  const start = istEpoch(dateKey, startHour);
+  if (Number.isNaN(start)) return { opensAt: null, closesAt: null };
   return { opensAt: start - EARLY_MS, closesAt: start + Math.max(1, durationHrs) * HOUR_MS };
 }
 

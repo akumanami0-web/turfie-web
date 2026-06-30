@@ -3,10 +3,11 @@ import React, { Suspense, useState } from "react";
 import { Card, Badge, Chip } from "@/components/ui/primitives";
 import { Container, Display, Eyebrow } from "@/components/ui/layout-bits";
 import { Icon } from "@/components/ui/Icon";
+import { ModalShell } from "@/components/ui/Modal";
 import { ScanScreen } from "@/components/screens/ScanScreen";
 import { inr, inrK } from "@/lib/format";
 
-type VBooking = { id: string; who: string; turf: string; unit: string; field: string; dateLabel: string; time: string; price: number; status: string; checkedIn: boolean; isToday: boolean };
+type VBooking = { id: string; who: string; turf: string; unit: string; field: string; dateLabel: string; time: string; price: number; status: string; checkedIn: boolean; isToday: boolean; players?: string; rescheduledAt?: string | null; prevDateLabel?: string | null; prevTime?: string | null };
 type VTurf = { id: string; name: string; area: string; unit: string };
 
 const cell: React.CSSProperties = { padding: "12px 14px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--color-body)", textAlign: "left" };
@@ -22,8 +23,13 @@ function statusBadge(b: VBooking) {
 export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string; turfs: VTurf[]; bookings: VBooking[]; kpis: { today: number; upcoming: number; revenue: number; checkedIn: number } }) {
   const [view, setView] = useState<"bookings" | "scan">("bookings");
   const [filter, setFilter] = useState("today");
-  const tabs: [string, string][] = [["today", "Today"], ["upcoming", "Upcoming"], ["all", "All"]];
-  const shown = bookings.filter((b) => filter === "all" || (filter === "today" ? b.isToday && b.status !== "cancelled" : b.status === "upcoming"));
+  const [detail, setDetail] = useState<VBooking | null>(null);
+  const tabs: [string, string][] = [["today", "Today"], ["upcoming", "Upcoming"], ["completed", "Completed"], ["cancelled", "Cancelled"], ["all", "All"]];
+  const shown = bookings.filter((b) => {
+    if (filter === "all") return true;
+    if (filter === "today") return b.isToday && b.status !== "cancelled";
+    return b.status === filter;
+  });
 
   return (
     <div style={{ background: "var(--color-canvas-soft)", minHeight: "100vh", paddingTop: 28, paddingBottom: 64 }}>
@@ -75,8 +81,8 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
                   <tbody>
                     {shown.length === 0 && <tr><td style={{ ...cell, color: "var(--color-mute)" }} colSpan={7}>No bookings here.</td></tr>}
                     {shown.map((b) => (
-                      <tr key={b.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                        <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}</td>
+                      <tr key={b.id} onClick={() => setDetail(b)} style={{ borderTop: "1px solid var(--border-subtle)", cursor: "pointer" }}>
+                        <td style={{ ...cell, fontWeight: 700, color: "var(--color-ink)" }}>{b.id}{b.rescheduledAt && <Icon name="refresh" size={13} color="var(--color-warning-deep)" style={{ marginLeft: 6, verticalAlign: "middle" }} />}</td>
                         <td style={cell}>{b.who}</td>
                         <td style={cell}>{b.turf}</td>
                         <td style={cell}>{b.dateLabel} · {b.time}</td>
@@ -90,6 +96,31 @@ export function VendorScreen({ meName, turfs, bookings, kpis }: { meName: string
               </div>
             </Card>
           </>
+        )}
+
+        {detail && (
+          <ModalShell onClose={() => setDetail(null)} maxWidth={460}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--color-mute)" }}>Booking</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22 }}>{detail.id}</div>
+              </div>
+              {statusBadge(detail)}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[["Player", detail.who], ["Turf", detail.turf], ["Date", detail.dateLabel], ["Time", detail.time], [detail.unit, `${detail.unit} ${detail.field}`], ["Players", detail.players || "—"], ["Amount", inr(detail.price)], ["Checked in", detail.checkedIn ? "Yes" : "No"]].map(([l, v]) => (
+                <div key={l}><div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--color-mute)" }}>{l}</div><div style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{v}</div></div>
+              ))}
+            </div>
+            {detail.rescheduledAt && detail.prevDateLabel && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", marginTop: 16, background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)" }}>
+                <Icon name="refresh" size={16} color="var(--color-warning-deep)" />
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-warning-content)", lineHeight: 1.45 }}>
+                  Rescheduled {detail.rescheduledAt} · moved from <strong>{detail.prevDateLabel} · {detail.prevTime}</strong> to <strong>{detail.dateLabel} · {detail.time}</strong>.
+                </span>
+              </div>
+            )}
+          </ModalShell>
         )}
       </Container>
     </div>

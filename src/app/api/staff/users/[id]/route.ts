@@ -47,6 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await prisma.user.update({ where: { id }, data: { role: b.role } });
   }
   if (typeof b.suspended === "boolean") {
+    if (id === staff.id) return NextResponse.json({ error: "You can't suspend your own account." }, { status: 400 });
     await prisma.user.update({ where: { id }, data: { suspended: b.suspended } });
   }
   if (b.assignTurfId) {

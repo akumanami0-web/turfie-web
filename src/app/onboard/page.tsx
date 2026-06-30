@@ -31,6 +31,10 @@ export default async function Page() {
     status: b.status,
     checkedIn: !!b.checkedInAt,
     isToday: b.dateKey === todayKey,
+    players: b.players,
+    rescheduledAt: b.rescheduledAt ? b.rescheduledAt.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null,
+    prevDateLabel: b.prevDateLabel,
+    prevTime: b.prevTime,
   }));
 
   const active = bookings.filter((b) => b.status !== "cancelled");

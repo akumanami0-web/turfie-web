@@ -8,6 +8,7 @@ import { verifyPayment } from "@/lib/payments";
 import { confirm, ensureHold, SlotConflictError } from "@/lib/locks";
 import { twilioConfigured } from "@/lib/otp";
 import { adjustWallet } from "@/lib/wallet-balance";
+import { istDate } from "@/lib/tz";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -67,8 +68,8 @@ export async function POST(req: Request) {
   }
 
   const user = await getSessionUser();
-  const kickoffAt = new Date(`${dateKey}T00:00:00`);
-  kickoffAt.setHours(kickoffAt.getHours() + Number(startHour || hours[0] || 0));
+  // IST wall-clock → absolute instant (server runs in UTC).
+  const kickoffAt = istDate(dateKey, Number(startHour || hours[0] || 0));
 
   const id = "TRF-" + Math.floor(1000 + Math.random() * 9000);
   const created = await prisma.booking.create({

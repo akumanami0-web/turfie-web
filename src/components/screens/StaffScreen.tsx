@@ -7,6 +7,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { ModalShell } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/toast";
+import { useSession } from "@/components/providers/session";
 import { inr, inrK, fmtDateShort, fmtHour } from "@/lib/format";
 import { SPORTS } from "@/lib/content";
 import type { TournamentView } from "@/lib/tournaments";
@@ -263,7 +264,7 @@ export function StaffScreen({ meName, kpis, users: users0, bookings: bookings0, 
 }
 
 /* ── Booking details popup ── */
-type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateKey: string | null; startHour: number | null; durationHrs: number; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean };
+type BookingDetail = { id: string; name: string; email: string; phone: string; initials: string; photoUrl: string | null; turf: string; area: string; unit: string; field: string; dateKey: string | null; startHour: number | null; durationHrs: number; dateLabel: string; time: string; duration: string; players: string; price: number; status: string; checkedIn: boolean; rescheduledAt: string | null; prevDateLabel: string | null; prevTime: string | null };
 
 function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; onClose: () => void; onChanged?: () => void }) {
   const toast = useToast();
@@ -297,7 +298,8 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
     setBusy(false);
     if (!res.ok) { toast(data.error || "Couldn't reschedule", "error"); return; }
     const u = data.booking;
-    setB({ ...b, dateKey: u.dateKey, dateLabel: u.dateLabel, time: u.time, duration: u.duration, startHour: u.startHour, durationHrs: u.durationHrs, status: u.status });
+    setB({ ...b, dateKey: u.dateKey, dateLabel: u.dateLabel, time: u.time, duration: u.duration, startHour: u.startHour, durationHrs: u.durationHrs, status: u.status,
+      rescheduledAt: "just now", prevDateLabel: b.dateLabel, prevTime: b.time });
     setResched(false);
     onChanged?.();
     toast("Booking rescheduled");
@@ -332,6 +334,16 @@ function BookingModal({ bookingId, onClose, onChanged }: { bookingId: string; on
             ))}
           </div>
 
+          {/* Rescheduled banner */}
+          {b.rescheduledAt && b.prevDateLabel && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", marginTop: 14, background: "var(--color-warning-pale)", borderRadius: "var(--radius-md)" }}>
+              <Icon name="refresh" size={16} color="var(--color-warning-deep)" />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--color-warning-content)", lineHeight: 1.45 }}>
+                Rescheduled {b.rescheduledAt} · moved from <strong>{b.prevDateLabel} · {b.prevTime}</strong> to <strong>{b.dateLabel} · {b.time}</strong>.
+              </span>
+            </div>
+          )}
+
           {/* Reschedule (staff override) */}
           {b.status !== "cancelled" && (
             resched ? (
@@ -363,6 +375,7 @@ type PlayerBooking = { id: string; turf: string; when: string; status: string; p
 
 function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { userId: string; onClose: () => void; onRole: (id: string, role: string) => void; onSuspend: (id: string, suspended: boolean) => void; onRequestDelete: (u: { id: string; name: string }) => void }) {
   const toast = useToast();
+  const { user: me } = useSession();
   const [d, setD] = useState<PlayerDetail | null>(null);
   const [bookings, setBookings] = useState<PlayerBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -441,11 +454,15 @@ function PlayerModal({ userId, onClose, onRole, onSuspend, onRequestDelete }: { 
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
             <Badge variant={d.role === "staff" ? "brand" : d.role === "operator" ? "ink" : "neutral"}>{d.role === "operator" ? "vendor" : d.role}</Badge>
             {d.suspended && <Badge variant="negative">suspended</Badge>}
-            {d.role !== "staff" && (d.role === "operator"
-              ? <Button size="sm" variant="tertiary" disabled={busy} onClick={() => setRole("player")}>Make player</Button>
-              : <Button size="sm" variant="tertiary" disabled={busy} onClick={() => setRole("operator")}>Make vendor</Button>)}
-            {d.role !== "staff" && <Button size="sm" variant="ghost" disabled={busy} onClick={suspendToggle}>{d.suspended ? "Reinstate" : "Suspend"}</Button>}
-            {d.role !== "staff" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRequestDelete({ id: d.id, name: d.name })} style={{ color: "var(--color-negative)" }}>Delete</Button>}
+            {me?.id === d.id ? (
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--color-mute)" }}>This is your own account.</span>
+            ) : (<>
+              {d.role !== "staff" && (d.role === "operator"
+                ? <Button size="sm" variant="tertiary" disabled={busy} onClick={() => setRole("player")}>Make player</Button>
+                : <Button size="sm" variant="tertiary" disabled={busy} onClick={() => setRole("operator")}>Make vendor</Button>)}
+              {d.role !== "staff" && <Button size="sm" variant="ghost" disabled={busy} onClick={suspendToggle}>{d.suspended ? "Reinstate" : "Suspend"}</Button>}
+              {d.role !== "staff" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRequestDelete({ id: d.id, name: d.name })} style={{ color: "var(--color-negative)" }}>Delete</Button>}
+            </>)}
           </div>
 
           {/* Turfie wallet */}
